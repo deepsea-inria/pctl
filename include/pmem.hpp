@@ -14,10 +14,9 @@
 #include <malloc.h>
 #endif
 #include <algorithm>
+#include <type_traits>
 
 #include "ploop.hpp"
-
-#include <type_traits>
 
 #ifndef _PCTL_PMEM_H_
 #define _PCTL_PMEM_H_
@@ -67,7 +66,7 @@ void pdelete(Item* lo, Item* hi) {
     alloc.destroy(p);
   });
 }
-  
+
 /***********************************************************************/
 
 } // end namespace

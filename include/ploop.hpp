@@ -20,7 +20,7 @@ namespace pctl {
 /*---------------------------------------------------------------------*/
 /* pctl global configuration */
 
-namespace par = sched::granularity;
+namespace par = granularity;
   
 #if defined(CONTROL_BY_FORCE_SEQUENTIAL)
   using controller_type = par::control_by_force_sequential;
