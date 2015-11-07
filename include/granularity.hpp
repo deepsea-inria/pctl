@@ -409,16 +409,22 @@ void cstmt(control_by_prediction& contr,
   estimator& estimator = contr.get_estimator();
   complexity_type m = complexity_measure_fct();
   execmode_type c;
-  if (m == complexity::tiny)
+  if (m == complexity::tiny) {
     c = Sequential;
-  else if (m == complexity::undefined)
+  } else if (m == complexity::undefined) {
     c = Parallel;
-  else
-    c = (estimator.predict(std::max((complexity_type)1, m)) <= kappa) ? Sequential : Parallel;
-  if (c == Sequential)
+  } else {
+    if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
+      c = Sequential;
+    } else {
+      c = Parallel;
+    }
+  }
+  if (c == Sequential) {
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
-  else
+  } else {
     cstmt_parallel(c, par_body_fct);
+  }
 }
 
 template <
