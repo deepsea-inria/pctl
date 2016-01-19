@@ -8,7 +8,9 @@
  */
 
 #include <atomic>
-
+#ifdef PCTL_CILK_PLUS
+#include <cilk/cilk.h>
+#endif
 #include "perworker.hpp"
 
 #ifndef _PCTL_GRANULARITY_H_
