@@ -91,9 +91,10 @@ namespace {
     }
     
     static value_type inverse(value_type x) {
+      /*
       util::atomic::fatal([] {
         std::cout << "inverse operation not supported" << std::endl;
-      });
+      }); */
       return identity();
     }
     

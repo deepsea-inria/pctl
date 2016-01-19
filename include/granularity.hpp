@@ -188,7 +188,7 @@ static constexpr cost_type pessimistic = 1.0;
   
 namespace {
   
-double cpu_frequency_ghz = 1.2;
+double cpu_frequency_ghz = 2.1;
 double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
   
 class estimator {

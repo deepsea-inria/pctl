@@ -16,7 +16,7 @@
 #include <type_traits>
 
 #include "weights.hpp"
-#include "atomic.hpp"
+//#include "atomic.hpp"
 #include "pchunkedseqbase.hpp"
 
 #ifndef _PCTL_DATAPAR_H_
@@ -196,7 +196,7 @@ void scan_seq(In_iter in_lo,
       out.copy(x, *out_it);
     }
   } else {
-    util::atomic::die("Bogus scan type passed to scan");
+    //util::atomic::die("Bogus scan type passed to scan");
   }
 }
   
