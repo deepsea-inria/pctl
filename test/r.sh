@@ -23,6 +23,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> showing command line
 =======
@@ -58,6 +59,8 @@
 >>>>>>> test folder
 =======
 =======
+>>>>>>> test folder
+=======
 >>>>>>> showing command line
 >>>>>>> showing command line
 =======
@@ -68,6 +71,8 @@
 >>>>>>> test folder
 =======
 >>>>>>> showing command line
+=======
+>>>>>>> test folder
 split=(${1//./ })
 
 name=${split[0]}
@@ -120,10 +125,13 @@ fi
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> test folder
 =======
 >>>>>>> showing command line
+=======
+>>>>>>> test folder
 =======
 >>>>>>> test folder
 eval ${cmdline} ${name}.cpp -o ${name}.${ext}
@@ -209,6 +217,11 @@ eval ${cmdline} ${name}.cpp -o ${name}.${ext}
 >>>>>>> showing command line
 <<<<<<< HEAD
 >>>>>>> showing command line
+=======
+=======
+eval ${cmdline} ${name}.cpp -o ${name}.${ext}
+>>>>>>> test folder
+<<<<<<< HEAD
 =======
 =======
 eval ${cmdline} ${name}.cpp -o ${name}.${ext}
