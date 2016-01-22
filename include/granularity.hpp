@@ -253,6 +253,9 @@ using execmode_type = enum {
   Unknown
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -376,6 +379,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 #ifdef HONEST
   perworker_type<bool> to_be_estimated;
 #endif
@@ -402,6 +406,8 @@ public:
 #endif
 
 =======
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -648,6 +654,18 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
+
+  bool set_to_be_estimated() {
+    to_be_estimated.mine() = true;
+  }
+
+  bool is_to_be_estimated() {
+    return to_be_estimated.mine();
+  }
+
+  bool is_undefined() {
+    return estimated.load();
+  }
   
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
@@ -656,6 +674,9 @@ public:
     if (!estimated.exchange(true)) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -679,6 +700,9 @@ public:
 #endif
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -800,11 +824,14 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 static inline
 double since_in_cycles(long long start) {
   return (get_wall_time() - start) * estimator::cpu_frequency_ghz;
 }
 
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -832,11 +859,14 @@ void cstmt_parallel(execmode_type c, const Body_fct& body_fct) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 template <class Body_fct>
 void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estimator& estimator) {
 #ifdef OPTIMISTIC
   cost_type upper_adjustment = time_adjustment.mine();
 =======
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -847,6 +877,9 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   double upper_adjustment = time_adjustment.mine();
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -856,6 +889,7 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 #elif HONEST
   if (estimator.is_undefined() && !estimator.is_to_be_estimated()) {
     nested_unknown.mine()++;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -902,6 +936,8 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     estimator.set_to_be_estimated();
   }
 #endif
@@ -923,6 +959,9 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -1016,6 +1055,7 @@ void cstmt(control_by_prediction& contr,
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 //    c = estimator.predict(std::max((complexity_type)1, m)) <= kappa ? Unknown_sequential : Unknown_parallel;
     c = Unknown_parallel;
 //    m = complexity_measure_fct();
@@ -1059,6 +1099,15 @@ void cstmt(control_by_prediction& contr,
   } else {
 #endif
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+    c = Unknown;
+  } else {
+#elif HONEST
+  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
+    c = Unknown;
+  } else {
+#endif
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     if (m == complexity::tiny) {
       c = Sequential;
     } else if (m == complexity::undefined) {
@@ -1067,11 +1116,15 @@ void cstmt(control_by_prediction& contr,
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
       if (
 #ifndef OPTIMISTIC
           my_execmode() == Sequential ||
 #endif
           estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
+=======
+      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
       if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -1092,6 +1145,7 @@ void cstmt(control_by_prediction& contr,
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   c = execmode_combine(my_execmode(), c);
   if (c == Unknown_sequential) {
     cstmt_unknown(c, m, seq_body_fct, estimator);
@@ -1108,6 +1162,8 @@ void cstmt(control_by_prediction& contr,
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 
   
   if (c == Unknown) {
@@ -1115,6 +1171,9 @@ void cstmt(control_by_prediction& contr,
   } else if (c == Sequential) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -1293,6 +1352,7 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   if ( (mode == Sequential) || (mode == Force_sequential)
 #if defined(HONEST) || defined(OPTIMISTIC)
     || (mode == Unknown_sequential)
@@ -1301,6 +1361,9 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
     || (mode == Unknown_parallel)
 #endif
   ) {
+=======
+  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
   if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
