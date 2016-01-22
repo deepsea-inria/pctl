@@ -312,6 +312,7 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
+<<<<<<< HEAD
 
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
@@ -348,6 +349,8 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
@@ -360,6 +363,9 @@ public:
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed, measured_cst);
 #endif
 
+<<<<<<< HEAD
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -565,16 +571,23 @@ void cstmt(control_by_prediction& contr,
   if (estimator.is_undefined()) {
     c = Unknown;
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   } else {
 #elif HONEST
   if (estimator.is_undefined() || nested_unknown.mine() > 0) {
     c = Unknown;
+<<<<<<< HEAD
   } else {
 =======
   } else {
 #elif HONEST
   if (estimator.is_undefined() || nested_unknown.mine() > 0) {
     c = Unknown;
+  } else {
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
   } else {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #endif
