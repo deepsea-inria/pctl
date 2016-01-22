@@ -313,6 +313,22 @@ public:
     return estimated.load();
   }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+
+  bool set_to_be_estimated() {
+    to_be_estimated.mine() = true;
+  }
+
+  bool is_to_be_estimated() {
+    return to_be_estimated.mine();
+  }
+
+  bool is_undefined() {
+    return estimated.load();
+  }
+<<<<<<< HEAD
 
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
@@ -337,18 +353,8 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   
