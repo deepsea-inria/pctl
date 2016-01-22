@@ -20,12 +20,16 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> showing command line
 =======
 >>>>>>> showing command line
 =======
 >>>>>>> test folder
 =======
 >>>>>>> showing command line
+<<<<<<< HEAD
 =======
 >>>>>>> test folder
 =======
@@ -54,6 +58,8 @@
 >>>>>>> showing command line
 =======
 >>>>>>> test folder
+=======
+>>>>>>> showing command line
 split=(${1//./ })
 
 name=${split[0]}
@@ -104,8 +110,11 @@ fi
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> test folder
+=======
+>>>>>>> showing command line
 eval ${cmdline} ${name}.cpp -o ${name}.${ext}
 =======
 g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -DPCTL_CILK_PLUS -fcilkplus $1.cpp -o $1
@@ -181,4 +190,10 @@ g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/includ
 =======
 eval ${cmdline} ${name}.cpp -o ${name}.${ext}
 >>>>>>> test folder
+<<<<<<< HEAD
 >>>>>>> test folder
+=======
+=======
+eval ${cmdline} ${name}.cpp -o ${name}.${ext}
+>>>>>>> showing command line
+>>>>>>> showing command line
