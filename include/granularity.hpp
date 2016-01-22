@@ -679,6 +679,7 @@ public:
   }
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 #ifdef ESTIMATOR_LOGGING
   long number_of_reports() {
@@ -688,6 +689,8 @@ public:
 
 =======
 =======
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
@@ -730,6 +733,10 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -784,6 +791,9 @@ public:
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
+<<<<<<< HEAD
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -1398,10 +1408,14 @@ void cstmt(control_by_prediction& contr,
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     c = Unknown;
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   } else {
 #elif HONEST
   if (estimator.is_undefined() || nested_unknown.mine() > 0) {
     c = Unknown;
+<<<<<<< HEAD
 <<<<<<< HEAD
   } else {
 #endif
@@ -1418,12 +1432,17 @@ void cstmt(control_by_prediction& contr,
 #endif
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   } else {
 =======
   } else {
 #elif HONEST
   if (estimator.is_undefined() || nested_unknown.mine() > 0) {
     c = Unknown;
+  } else {
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
   } else {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #endif
