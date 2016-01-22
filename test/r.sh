@@ -12,6 +12,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> showing command line
 =======
@@ -26,6 +27,8 @@
 >>>>>>> test folder
 =======
 >>>>>>> merge
+=======
+>>>>>>> showing command line
 split=(${1//./ })
 
 name=${split[0]}
@@ -112,4 +115,10 @@ eval ${cmdline} ${name}.cpp -o ${name}.${ext}
 >>>>>>> test folder
 =======
 g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -DPCTL_CILK_PLUS -fcilkplus $1.cpp -o $1
+<<<<<<< HEAD
 >>>>>>> test folder
+=======
+=======
+g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -DHONEST -DPCTL_CILK_PLUS -fcilkplus $1.cpp -o $1
+>>>>>>> showing command line
+>>>>>>> showing command line
