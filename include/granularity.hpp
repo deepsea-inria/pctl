@@ -678,6 +678,7 @@ public:
     return estimated.load();
   }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 #ifdef ESTIMATOR_LOGGING
   long number_of_reports() {
@@ -686,6 +687,20 @@ public:
 #endif
 
 =======
+=======
+
+  bool set_to_be_estimated() {
+    to_be_estimated.mine() = true;
+  }
+
+  bool is_to_be_estimated() {
+    return to_be_estimated.mine();
+  }
+
+  bool is_undefined() {
+    return estimated.load();
+  }
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   void report(complexity_type complexity, cost_type elapsed) {
@@ -702,6 +717,7 @@ public:
     
 >>>>>>> last changes to commit
     double elapsed_time = elapsed / local_ticks_per_microsecond;
+<<<<<<< HEAD
     cost_type measured_cst = elapsed_time / complexity;    
 
 <<<<<<< HEAD
@@ -713,6 +729,10 @@ public:
 #ifdef ESTIMATOR_LOGGING
     reports_number.mine()++;
 #endif
+=======
+    cost_type measured_cst = elapsed_time / complexity;
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 
 >>>>>>> log number of reports to estimators
 #ifdef LOGGING
@@ -726,6 +746,8 @@ public:
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #if defined(OPTIMISTIC) || defined(HONEST)
 /*    bool cold_run = false;
     if (!is_undefined()) {
