@@ -324,16 +324,31 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
+
+  bool set_to_be_estimated() {
+    to_be_estimated.mine() = true;
+  }
+
+  bool is_to_be_estimated() {
+    return to_be_estimated.mine();
+  }
+
+  bool is_undefined() {
+    return estimated.load();
+  }
   
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 #ifdef LOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed, measured_cst);
 #endif
 
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #if defined(OPTIMISTIC) || defined(HONEST)
