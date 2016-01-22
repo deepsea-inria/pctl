@@ -9,6 +9,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> showing command line
 =======
@@ -17,6 +18,8 @@
 >>>>>>> showing command line
 =======
 >>>>>>> test folder
+=======
+>>>>>>> showing command line
 split=(${1//./ })
 
 name=${split[0]}
