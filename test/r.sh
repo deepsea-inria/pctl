@@ -15,6 +15,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> showing command line
 =======
@@ -35,6 +36,8 @@
 >>>>>>> test folder
 =======
 >>>>>>> showing command line
+=======
+>>>>>>> test folder
 split=(${1//./ })
 
 name=${split[0]}
@@ -100,6 +103,7 @@ g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/includ
 =======
 g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -DPCTL_CILK_PLUS -fcilkplus $1.cpp -o $1
 >>>>>>> test folder
+<<<<<<< HEAD
 =======
 g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -DHONEST -DPCTL_CILK_PLUS -fcilkplus $1.cpp -o $1
 >>>>>>> showing command line
@@ -140,3 +144,5 @@ g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/includ
 g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -DHONEST -DPCTL_CILK_PLUS -fcilkplus $1.cpp -o $1
 >>>>>>> showing command line
 >>>>>>> showing command line
+=======
+>>>>>>> test folder
