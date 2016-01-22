@@ -700,6 +700,21 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+
+  bool set_to_be_estimated() {
+    to_be_estimated.mine() = true;
+  }
+
+  bool is_to_be_estimated() {
+    return to_be_estimated.mine();
+  }
+
+  bool is_undefined() {
+    return estimated.load();
+  }
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -732,6 +747,10 @@ public:
 =======
     cost_type measured_cst = elapsed_time / complexity;
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+<<<<<<< HEAD
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 
 >>>>>>> log number of reports to estimators
@@ -746,6 +765,8 @@ public:
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #if defined(OPTIMISTIC) || defined(HONEST)
