@@ -8,6 +8,7 @@
  */
 
 #include <cmath>
+#include <functional>
 
 #include "pmem.hpp"
 

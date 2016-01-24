@@ -8,6 +8,7 @@
  */
 
 #include <atomic>
+#include <string>
 
 #include "perworker.hpp"
 

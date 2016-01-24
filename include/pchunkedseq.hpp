@@ -169,7 +169,7 @@ void tabulate_rng_dst(long n,
   auto convert_comp = [&] (input_type& in) {
     return body_comp_rng(in.lo, in.hi);
   };
-  long chunk_capacity = dst.seq.chunk_capacity;
+  long chunk_capacity = dst.chunk_capacity;
   parray<value_type> tmp(chunk_capacity);
   auto convert = [&] (input_type& in, Chunkedseq& dst) {
     dst.stream_pushn_back([&] (long i, long n) {

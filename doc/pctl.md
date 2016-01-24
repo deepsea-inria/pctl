@@ -31,12 +31,40 @@ execution.
 Preliminaries
 =============
 
-Platform
---------
+Obtaining the source code
+-------------------------
+
+Building
+---------
 
 We have implemented pctl to be compatible with the C++11
 standard. Earlier version of the C++ standard may be incompatible with
 pctl.
+
+### Platform support
+
+Parallelism in PCTL can be realized by any runtime system that brings
+fork-join parallelism to C++. The following table summarizes which of
+these systems are currently supported by PCTL.
+
++-----------+---------------------------------+------------------------+
+|           |Compiler flag                    | Description            |
+|           |                                 |                        |
++-----------+---------------------------------+------------------------+
+| Sequential| `USE_SEQUENTIAL_ELISION_RUNTIME`| Sequentializes all     |
+|elision    |                                 |opportunities for       |
+|           |                                 |parallelism.            |
+|           |                                 |                        |
++-----------+---------------------------------+------------------------+
+| Cilk Plus | `USE_CILK_PLUS_RUNTIME`         | Uses the Cilk Plus     |
+|           |                                 |system to realize       |
+|           |                                 |parallelism.            |
++-----------+---------------------------------+------------------------+
+| PASL      | `USE_PASL_RUNTIME`              | Uses the PASL system to|
+|           |                                 |realize parallelism.    |
++-----------+---------------------------------+------------------------+
+
+Table: The runtime systems that are currently supported by PCTL.
 
 Cost model
 ----------
@@ -1338,7 +1366,7 @@ Destructs the container.
 
 +-------------------------------------+--------------------------------------+
 | Operation                           | Description                          |
-+-------------------------------------+--------------------------------------+
++=====================================+======================================+
 | [`size`](#pset-si)                  | Return size                          |
 +-------------------------------------+--------------------------------------+
 | [`swap`](#pset-sw)                  | Exchange contents                    |
