@@ -9,6 +9,9 @@
 
 #include <atomic>
 #include <string>
+#ifdef PCTL_CILK_PLUS
+#include <cilk/cilk.h>
+#endif
 
 #include "perworker.hpp"
 
