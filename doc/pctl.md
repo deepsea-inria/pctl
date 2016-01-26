@@ -66,6 +66,24 @@ these systems are currently supported by PCTL.
 
 Table: The runtime systems that are currently supported by PCTL.
 
+### Software dependencies
+
+- [`cmdline`](https://github.com/deepsea-inria/cmdline)
+- [`chunkedseq`](https://github.com/deepsea-inria/chunkedseq)
+
+### Installation script
+
+First, get the script
+[get.sh](https://github.com/deepsea-inria/pbbs-pctl/blob/master/script/get.sh).
+
+Then, run the script, passing the path to which you want to store the
+`pctl` folder and its dependencies.
+
+~~~~~~~~~~~~~~~~~~~~~
+$ get.sh <path to target directory here>
+...
+~~~~~~~~~~~~~~~~~~~~~
+
 Cost model
 ----------
 
