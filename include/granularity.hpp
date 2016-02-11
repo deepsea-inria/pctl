@@ -406,7 +406,7 @@ void cstmt(control_by_prediction& contr,
   seq_body_fct();
   return;
 #endif
-#ifdef PCTL_SEQUENTIAL_ELISION
+#if defined(PCTL_SEQUENTIAL_ELISION) || defined(PCTL_PARALLEL_ELISION)
   par_body_fct();
   return;
 #endif
@@ -464,6 +464,10 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 #if defined(PCTL_SEQUENTIAL_ELISION) || defined(PCTL_SEQUENTIAL_BASELINE)
   f1();
   f2();
+  return;
+#endif
+#ifdef PCTL_PARALLEL_ELISION
+  primitive_fork2(f1, f2);
   return;
 #endif
   execmode_type mode = my_execmode();

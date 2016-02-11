@@ -36,6 +36,9 @@ namespace pasl {
     }
 
     long long fib_par(int n) {
+      if (n == 0 || n == 1) {
+        return n;
+      }
       long long a = 0, b = 0;
       granularity::fork2(
         [&] { granularity::cstmt(cfib, [&] { return comp(n - 1); }, [&] { a = fib_par(n - 1); }, [&] { a = fib_seq(n - 1); }); },
