@@ -3,7 +3,7 @@ split=(${1//./ })
 name=${split[0]}
 ext=${split[1]}
 
-cmdline="g++ -std=gnu++11 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include"
+cmdline="g++ -std=gnu++11 -O2 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include"
 
 if [[ $ext == "unk" ]];
 then
@@ -17,14 +17,17 @@ fi
 
 if [[ $ext == "par" ]];
 then
-  cmdline="${cmdline} -DPCTL_CILK_PLUS -fcilkplus -DPARALLEL_ELISION"
+  cmdline="${cmdline} -DPCTL_CILK_PLUS -fcilkplus -DPCTL_PARALLEL_ELISION"
+fi
+
+if [[ $ext == "seqel" ]];
+then
+  cmdline="${cmdline} -DPCTL_SEQUENTIAL_ELISION"
 fi
 
 if [[ $ext == "seq" ]];
 then
-  cmdline="${cmdline} -DPCTL_CILK_PLUS -fcilkplus -DSEQUENTIAL_ELISION"
+  cmdline="${cmdline}"
 fi
-
-
 
 eval ${cmdline} ${name}.cpp -o ${name}.${ext}

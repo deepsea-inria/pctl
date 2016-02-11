@@ -8,7 +8,9 @@
  */
 
 #include <atomic>
+#include <chrono>
 #include <string>
+#include <iostream>
 #ifdef PCTL_CILK_PLUS
 #include <cilk/cilk.h>
 #endif
@@ -161,7 +163,7 @@ execmode_type& my_execmode() {
 /*---------------------------------------------------------------------*/
 /* Constant-estimator data structure */
   
-using complexity_type = long;
+using complexity_type = double;
 using cost_type = double;
 
 namespace complexity {
@@ -266,6 +268,7 @@ public:
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
+
     cost_type cst = get_constant();
     if (cst == cost::undefined) {
       // handle the first measure without average
@@ -286,6 +289,7 @@ public:
     assert (complexity >= 0);
     // compute the constant multiplied by the complexity
     cost_type cst = get_constant_or_pessimistic();
+
     return cst * ((double) complexity);
   }
   
