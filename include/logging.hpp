@@ -31,12 +31,12 @@ typedef enum {
 
 static inline std::string name_of(event_type type) {
   switch (type) {
-    case FORK:                return std::string("estim_fork          ");
-    case ESTIM_NAME:          return std::string("estim_name          %s");
-    case ESTIM_PREDICT:       return std::string("estim_predict       %s %f %f %f"); // name complexity prediction constant
-    case ESTIM_REPORT:        return std::string("estim_report        %s %f %f %f"); // name complexity estimated estimated/complexity
-    case ESTIM_UPDATE:        return std::string("estim_update        %s %f"); // name constant
-    case ESTIM_UPDATE_SHARED: return std::string("estim_update_shared %s %f"); // name constant
+    case FORK:                return std::string("estim_fork          \t");
+    case ESTIM_NAME:          return std::string("estim_name          \t%s");
+    case ESTIM_PREDICT:       return std::string("estim_predict       \t%s\t%f\t%f\t%f"); // name complexity prediction constant
+    case ESTIM_REPORT:        return std::string("estim_report        \t%s\t%f\t%f\t%f"); // name complexity estimated estimated/complexity
+    case ESTIM_UPDATE:        return std::string("estim_update        \t%s\t%f"); // name constant
+    case ESTIM_UPDATE_SHARED: return std::string("estim_update_shared \t%s\t%f"); // name constant
     default: assert(false);
   }
 }
@@ -55,7 +55,7 @@ std::string printf(const std::string& format, Args ... args) {
 
 template <typename ... Args>
 void log(event_type type, Args ... args) {
-  std::string format = std::string("%ld %d ") + name_of(type);
+  std::string format = std::string("%ld\t%d\t") + name_of(type);
   auto now = std::chrono::system_clock::now();
   auto now_milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
   std::string message = printf(format, now_milliseconds, buffers.get_my_id(), args ...);

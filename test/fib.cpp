@@ -60,7 +60,6 @@ namespace pasl {
 
 int main(int argc, char** argv) {
   pbbs::launch(argc, argv, [&] {
-    pasl::util::cmdline::set(argc, argv);
     auto start = std::chrono::system_clock::now();
     pasl::pctl::ex();
     auto end = std::chrono::system_clock::now();
