@@ -16,6 +16,7 @@
 #endif
 
 #include "perworker.hpp"
+#include "logging.hpp"
 
 #ifndef _PCTL_GRANULARITY_H_
 #define _PCTL_GRANULARITY_H_
@@ -131,7 +132,7 @@ execmode_type execmode_combine(execmode_type p, execmode_type c) {
 }
   
 namespace {
-  
+/*  
 std::atomic<int> counter(0);
   
 __thread int my_id = -1;
@@ -146,10 +147,10 @@ public:
     return my_id;
   }
   
-};
+};*/
   
 template <class Item>
-using perworker_type = perworker::array<Item, get_my_id>;
+using perworker_type = perworker::array<Item, perworker::get_my_id>;
   
 perworker_type<dynidentifier<execmode_type>> execmode;
   
@@ -230,6 +231,9 @@ private:
   }
   
   void update_shared(cost_type new_cst) {
+#ifdef LOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
+#endif
     shared = new_cst;
   }
   
@@ -246,6 +250,9 @@ private:
       }
     }
     // store the new constant locally in any case
+#ifdef LOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE, name.c_str(), new_cst);
+#endif
     privates.mine() = new_cst;
   }
   
@@ -263,11 +270,18 @@ public:
   estimator(std::string name)
   : name(name) {
     init();
+#ifdef LOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, name.c_str());
+#endif
   }
   
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
+
+#ifdef LOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed, measured_cst);
+#endif
 
     cost_type cst = get_constant();
     if (cst == cost::undefined) {
@@ -289,6 +303,10 @@ public:
     assert (complexity >= 0);
     // compute the constant multiplied by the complexity
     cost_type cst = get_constant_or_pessimistic();
+
+#ifdef LOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_PREDICT, name.c_str(), complexity, cst * complexity, cst);
+#endif
 
     return cst * ((double) complexity);
   }

@@ -66,6 +66,9 @@ int main(int argc, char** argv) {
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end - start;
     printf ("exectime %.3lf\n", diff.count());
+#ifdef LOGGING
+    pasl::pctl::logging::dump();
+#endif
   });
   return 0;
 

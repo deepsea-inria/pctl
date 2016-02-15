@@ -18,7 +18,27 @@ namespace pctl {
 namespace perworker {
 
 /***********************************************************************/
+
+/*---------------------------------------------------------------------*/
+/* One implementation of processors id function */
+
+std::atomic<int> counter(0);
   
+__thread int my_id = -1;
+  
+class get_my_id {
+public:
+  
+  int operator()() {
+    while (my_id == -1) {
+      my_id = counter++;
+    }
+    return my_id;
+  }
+  
+};
+  
+
 /*---------------------------------------------------------------------*/
 /* Cache-aligned fixed-capacity array */
   
@@ -60,6 +80,13 @@ public:
       at(i) = x;
     }
   }
+
+  template <class Body_fct>
+  void iterate(Body_fct& f) {
+    for (int i = 0; i < size(); i++) {
+      f(at(i));
+    }
+  }
   
 };
   
@@ -70,6 +97,8 @@ class array {
 private:
 
   cache_aligned_fixed_capacity_array<Item, max_nb_workers> items;
+
+public:
   
   int get_my_id() {
     My_id my_id;
@@ -78,8 +107,6 @@ private:
     assert(id < max_nb_workers);
     return id;
   }
-  
-public:
   
   array() { }
 
@@ -103,6 +130,11 @@ public:
   
   void init(const Item& x) {
     items.init(x);
+  }
+
+  template <class Body_fct>
+  void iterate(const Body_fct& body) {
+    items.iterate(body);
   }
   
 };

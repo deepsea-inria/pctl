@@ -3,7 +3,7 @@ split=(${1//./ })
 name=${split[0]}
 ext=${split[1]}
 
-cmdline="g++ -std=gnu++11 -O2 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include"
+cmdline="g++ -std=gnu++11 -g -O0 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include"
 
 if [[ $ext == "unk" ]];
 then
@@ -13,6 +13,11 @@ fi
 if [[ $ext == "norm" ]];
 then
   cmdline="${cmdline} -DPCTL_CILK_PLUS -fcilkplus"
+fi
+
+if [[ $ext == "log" ]];
+then
+  cmdline="${cmdline} -DPCTL_CILK_PLUS -fcilkplus -DLOGGING"
 fi
 
 if [[ $ext == "par" ]];
