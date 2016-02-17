@@ -33,9 +33,14 @@ ext=${split[1]}
 
 cmdline="g++ -std=gnu++11 -g -O0 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include"
 
-if [[ $ext == "unk" ]];
+if [[ $ext == "unkh" ]];
 then
   cmdline="${cmdline} -DHONEST -DPCTL_CILK_PLUS -fcilkplus"
+fi
+
+if [[ $ext == "unko" ]];
+then
+  cmdline="${cmdline} -DOPTIMISTIC -DPCTL_CILK_PLUS -fcilkplus"
 fi
 
 if [[ $ext == "norm" ]];

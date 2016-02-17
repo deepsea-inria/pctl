@@ -673,67 +673,7 @@ public:
   }
 
   bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
+    return !estimated.load();
   }
   
   void report(complexity_type complexity, cost_type elapsed) {
@@ -1035,12 +975,13 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   cost_type elapsed = since(start);
 
   if (estimator.is_undefined()) {
+//
 #ifdef OPTIMISTIC
-    elapsed += time_adjustment.mine();
+    estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
 #elif HONEST
     nested_unknown.mine()--;
-#endif
     estimator.report(std::max((complexity_type) 1, m), elapsed);
+#endif
   }
 
 #ifdef OPTIMISTIC
