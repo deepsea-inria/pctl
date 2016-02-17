@@ -10,6 +10,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> showing command line
 =======
@@ -22,6 +23,8 @@
 >>>>>>> showing command line
 =======
 >>>>>>> test folder
+=======
+>>>>>>> merge
 split=(${1//./ })
 
 name=${split[0]}
