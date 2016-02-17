@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
     printf ("exectime %.3lf\n", diff.count());
 #ifdef LOGGING
     pasl::pctl::logging::dump();
+    printf("number of created threads: %d\n", pasl::pctl::granularity::threads_created());
 #endif
   });
   return 0;

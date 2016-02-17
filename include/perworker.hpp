@@ -71,7 +71,7 @@ public:
     return at(i);
   }
   
-  std::size_t size() const {
+  inline std::size_t size() const {
     return capacity;
   }
   
@@ -86,6 +86,15 @@ public:
     for (int i = 0; i < size(); i++) {
       f(at(i));
     }
+  }
+
+  template <class Body_fct>
+  Item reduce(Body_fct& combine, const Item& zero) {
+    Item result = zero;
+    for (int i = 0; i < size(); i++) {
+      result = combine(result, at(i));
+    }
+    return result;
   }
   
 };
@@ -137,6 +146,10 @@ public:
     items.iterate(body);
   }
   
+  template <class Body_fct>
+  Item reduce(const Body_fct& combine, const Item& zero) {
+    items.reduce(combine, zero);
+  }
 };
 
 /***********************************************************************/

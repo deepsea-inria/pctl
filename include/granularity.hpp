@@ -66,9 +66,16 @@ double since(cycles_type time_start) {
 
 /*---------------------------------------------------------------------*/
 /* */
+
+#ifdef LOGGING
+pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number;
+#endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
+#ifdef LOGGING
+  threads_number.mine()++;
+#endif
 #if defined(PCTL_CILK_PLUS)
   cilk_spawn f1();
   f2();
@@ -81,6 +88,12 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
+#ifdef LOGGING
+int threads_created() {
+  return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
+}
+#endif
+
 /*---------------------------------------------------------------------*/
 /* Dynamic scope */
 
