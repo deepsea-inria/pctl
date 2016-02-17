@@ -19,7 +19,7 @@
 /***********************************************************************/
 
 /*
-  To get expected behaviour, one should run with n=10000000, m=400 and n=400,m=10000000
+  To get expected behaviour, one should run with n=10000000, m=400 and n=400,m=1000000
 */
 
 namespace pasl {
