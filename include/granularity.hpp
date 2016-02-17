@@ -675,6 +675,7 @@ public:
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 
   bool is_undefined() {
+<<<<<<< HEAD
     return estimated.load();
   }
 <<<<<<< HEAD
@@ -794,6 +795,9 @@ public:
 
   bool is_undefined() {
     return estimated.load();
+=======
+    return !estimated.load();
+>>>>>>> suddenly unknown mode works
   }
 >>>>>>> merge
 >>>>>>> merge
@@ -1287,7 +1291,9 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   cost_type elapsed = since(start);
 
   if (estimator.is_undefined()) {
+//
 #ifdef OPTIMISTIC
+<<<<<<< HEAD
 <<<<<<< HEAD
     estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
 #elif HONEST
@@ -1319,10 +1325,13 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
     elapsed += time_adjustment.mine();
+=======
+    estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
+>>>>>>> suddenly unknown mode works
 #elif HONEST
     nested_unknown.mine()--;
-#endif
     estimator.report(std::max((complexity_type) 1, m), elapsed);
+#endif
   }
 
 #ifdef OPTIMISTIC

@@ -97,6 +97,11 @@ then
   cmdline="${cmdline} -DESTIMATOR_LOGGING -DOPTIMISTIC -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 fi
 
+if [[ $ext == "unko" ]];
+then
+  cmdline="${cmdline} -DOPTIMISTIC -DPCTL_CILK_PLUS -fcilkplus"
+fi
+
 if [[ $ext == "norm" ]];
 then
 #  cmdline="${cmdline} -DESTIMATOR_LOGGING -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
