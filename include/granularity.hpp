@@ -310,6 +310,7 @@ public:
   }
 
   bool is_undefined() {
+<<<<<<< HEAD
     return estimated.load();
   }
 <<<<<<< HEAD
@@ -400,6 +401,9 @@ public:
 
   bool is_undefined() {
     return estimated.load();
+=======
+    return !estimated.load();
+>>>>>>> suddenly unknown mode works
   }
 >>>>>>> merge
   
@@ -529,12 +533,13 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   cost_type elapsed = since(start);
 
   if (estimator.is_undefined()) {
+//
 #ifdef OPTIMISTIC
-    elapsed += time_adjustment.mine();
+    estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
 #elif HONEST
     nested_unknown.mine()--;
-#endif
     estimator.report(std::max((complexity_type) 1, m), elapsed);
+#endif
   }
 
 #ifdef OPTIMISTIC
