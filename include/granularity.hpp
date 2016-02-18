@@ -230,7 +230,9 @@ private:
 
   perworker_type<cost_type> privates;
 
+#ifdef HONEST
   perworker_type<bool> to_be_estimated;
+#endif
 
   std::atomic<bool> estimated;
   
@@ -283,7 +285,9 @@ private:
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
+#ifdef HOMEST
     to_be_estimated.init(false);
+#endif
     estimated = false;
   }
   
@@ -301,13 +305,15 @@ public:
 #endif
   }
 
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
+#ifdef HONEST
+  void set_to_be_estimated(bool value) {
+    to_be_estimated.mine() = value;
   }
 
   bool is_to_be_estimated() {
     return to_be_estimated.mine();
   }
+#endif
 
   bool is_undefined() {
 <<<<<<< HEAD
@@ -405,8 +411,12 @@ public:
     return !estimated.load();
 >>>>>>> suddenly unknown mode works
   }
+<<<<<<< HEAD
 >>>>>>> merge
   
+=======
+
+>>>>>>> nested loops works
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
@@ -415,7 +425,7 @@ public:
 <<<<<<< HEAD
 
 #ifdef LOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed, measured_cst);
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
 <<<<<<< HEAD
@@ -524,7 +534,7 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 #elif HONEST
   if (estimator.is_undefined() && !estimator.is_to_be_estimated()) {
     nested_unknown.mine()++;
-    estimator.set_to_be_estimated();
+    estimator.set_to_be_estimated(true);
   }
 #endif
 
@@ -533,14 +543,19 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   cost_type elapsed = since(start);
 
   if (estimator.is_undefined()) {
-//
 #ifdef OPTIMISTIC
     estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
 #elif HONEST
-    nested_unknown.mine()--;
     estimator.report(std::max((complexity_type) 1, m), elapsed);
 #endif
   }
+
+#ifdef HONEST
+  if (estimator.is_to_be_estimated()) {
+    estimator.set_to_be_estimated(false);
+    nested_unknown.mine()--;
+  }
+#endif
 
 #ifdef OPTIMISTIC
   time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
@@ -639,8 +654,10 @@ void cstmt(control_by_prediction& contr,
 =======
   } else {
 #elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
+  if (estimator.is_undefined()) {
     c = Unknown;
+  } else if (nested_unknown.mine() > 0) {
+    c = Sequential;
   } else {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -712,7 +729,11 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
   return;
 #endif
   execmode_type mode = my_execmode();
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
+  if ( (mode == Sequential) || (mode == Force_sequential)
+#ifdef HONEST
+    || (mode == Unknown)
+#endif
+  ) {
     f1();
     f2();
   } else {
