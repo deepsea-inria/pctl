@@ -384,6 +384,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 #ifdef HONEST
   perworker_type<bool> to_be_estimated;
 #endif
@@ -418,7 +419,11 @@ public:
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+#ifdef HONEST
+>>>>>>> nested loops works
   perworker_type<bool> to_be_estimated;
+#endif
 
   std::atomic<bool> estimated;
   
@@ -492,7 +497,9 @@ public:
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
+#ifdef HOMEST
     to_be_estimated.init(false);
+#endif
     estimated = false;
   }
   
@@ -525,6 +532,7 @@ public:
 #ifdef HONEST
   void set_to_be_estimated(bool value) {
     to_be_estimated.mine() = value;
+<<<<<<< HEAD
 =======
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
@@ -533,6 +541,8 @@ public:
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+>>>>>>> nested loops works
   }
 
   bool is_to_be_estimated() {
@@ -540,6 +550,9 @@ public:
   }
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> nested loops works
 #endif
 
 #if defined(HONEST) || defined(OPTIMISTIC)
@@ -586,14 +599,19 @@ public:
   bool is_undefined() {
     return estimated.load();
   }
-  
+
   void report(complexity_type complexity, cost_type elapsed) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;    
 
+<<<<<<< HEAD
 #ifdef REPORTS
     reports_number.mine()++;
+=======
+#ifdef LOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
+>>>>>>> nested loops works
 #endif
 
 <<<<<<< HEAD
@@ -919,6 +937,7 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     estimator.set_to_be_estimated(true);
   }
 #endif
@@ -967,6 +986,9 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     estimator.set_to_be_estimated();
+=======
+    estimator.set_to_be_estimated(true);
+>>>>>>> nested loops works
   }
 #endif
 
@@ -975,14 +997,19 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   cost_type elapsed = since(start);
 
   if (estimator.is_undefined()) {
-//
 #ifdef OPTIMISTIC
     estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
 #elif HONEST
-    nested_unknown.mine()--;
     estimator.report(std::max((complexity_type) 1, m), elapsed);
 #endif
   }
+
+#ifdef HONEST
+  if (estimator.is_to_be_estimated()) {
+    estimator.set_to_be_estimated(false);
+    nested_unknown.mine()--;
+  }
+#endif
 
 #ifdef OPTIMISTIC
   time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
@@ -1145,8 +1172,10 @@ void cstmt(control_by_prediction& contr,
     c = Unknown;
   } else {
 #elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
+  if (estimator.is_undefined()) {
     c = Unknown;
+  } else if (nested_unknown.mine() > 0) {
+    c = Sequential;
   } else {
 #endif
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -1406,6 +1435,7 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   if ( (mode == Sequential) || (mode == Force_sequential)
 #if defined(HONEST) || defined(OPTIMISTIC)
     || (mode == Unknown_sequential)
@@ -1429,6 +1459,13 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 =======
   if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+  if ( (mode == Sequential) || (mode == Force_sequential)
+#ifdef HONEST
+    || (mode == Unknown)
+#endif
+  ) {
+>>>>>>> nested loops works
     f1();
     f2();
   } else {
