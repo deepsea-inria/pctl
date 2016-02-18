@@ -414,6 +414,7 @@ private:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 #ifdef HONEST
   perworker_type<bool> to_be_estimated;
 #endif
@@ -470,6 +471,11 @@ private:
 =======
   perworker_type<bool> to_be_estimated;
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+#ifdef HONEST
+  perworker_type<bool> to_be_estimated;
+#endif
+>>>>>>> nested loops works
 
   std::atomic<bool> estimated;
   
@@ -555,6 +561,7 @@ private:
     shared = cost::undefined;
     privates.init(cost::undefined);
 <<<<<<< HEAD
+<<<<<<< HEAD
 #ifdef HOMEST
     to_be_estimated.init(false);
 #endif
@@ -563,7 +570,11 @@ private:
     last_report.init(0);
 #endif
 =======
+=======
+#ifdef HOMEST
+>>>>>>> nested loops works
     to_be_estimated.init(false);
+#endif
     estimated = false;
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   }
@@ -604,6 +615,7 @@ public:
   void set_to_be_estimated(bool value) {
     to_be_estimated.mine() = value;
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
@@ -618,11 +630,14 @@ public:
   bool set_to_be_estimated() {
     to_be_estimated.mine() = true;
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+>>>>>>> nested loops works
   }
 
   bool is_to_be_estimated() {
     return to_be_estimated.mine();
   }
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -673,6 +688,9 @@ public:
 =======
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+#endif
+>>>>>>> nested loops works
 
   bool is_undefined() {
 <<<<<<< HEAD
@@ -799,10 +817,17 @@ public:
     return !estimated.load();
 >>>>>>> suddenly unknown mode works
   }
+<<<<<<< HEAD
 >>>>>>> merge
 >>>>>>> merge
   
+<<<<<<< HEAD
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+=======
+
+>>>>>>> nested loops works
+>>>>>>> nested loops works
   void report(complexity_type complexity, cost_type elapsed) {
 <<<<<<< HEAD
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -845,6 +870,7 @@ public:
 >>>>>>> log number of reports to estimators
 #ifdef LOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
+<<<<<<< HEAD
 >>>>>>> nested loops works
 #endif
 
@@ -852,6 +878,8 @@ public:
 <<<<<<< HEAD
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
+=======
+>>>>>>> nested loops works
 #endif
 
 <<<<<<< HEAD
@@ -1229,6 +1257,7 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     estimator.set_to_be_estimated(true);
   }
 #endif
@@ -1283,6 +1312,9 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 =======
     estimator.set_to_be_estimated();
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+    estimator.set_to_be_estimated(true);
+>>>>>>> nested loops works
   }
 #endif
 
@@ -1291,7 +1323,6 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
   cost_type elapsed = since(start);
 
   if (estimator.is_undefined()) {
-//
 #ifdef OPTIMISTIC
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -1329,10 +1360,16 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
     estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
 >>>>>>> suddenly unknown mode works
 #elif HONEST
-    nested_unknown.mine()--;
     estimator.report(std::max((complexity_type) 1, m), elapsed);
 #endif
   }
+
+#ifdef HONEST
+  if (estimator.is_to_be_estimated()) {
+    estimator.set_to_be_estimated(false);
+    nested_unknown.mine()--;
+  }
+#endif
 
 #ifdef OPTIMISTIC
   time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
@@ -1506,8 +1543,10 @@ void cstmt(control_by_prediction& contr,
 =======
   } else {
 #elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
+  if (estimator.is_undefined()) {
     c = Unknown;
+  } else if (nested_unknown.mine() > 0) {
+    c = Sequential;
   } else {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
@@ -1785,6 +1824,7 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   if ( (mode == Sequential) || (mode == Force_sequential)
 #if defined(HONEST) || defined(OPTIMISTIC)
     || (mode == Unknown_sequential)
@@ -1809,15 +1849,20 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
   if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
+=======
+>>>>>>> nested loops works
   if ( (mode == Sequential) || (mode == Force_sequential)
 #ifdef HONEST
     || (mode == Unknown)
 #endif
   ) {
+<<<<<<< HEAD
 >>>>>>> nested loops works
 =======
   if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+>>>>>>> nested loops works
     f1();
     f2();
   } else {
