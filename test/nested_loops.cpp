@@ -1,5 +1,5 @@
 /*!
- * \file fib.cpp
+ * \file nested_loop.cpp
  * \brief Nested loops example
  * \date 2015
  * \copyright COPYRIGHT (c) 2015 Umut Acar, Arthur Chargueraud, and
@@ -59,6 +59,10 @@ int main(int argc, char** argv) {
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end - start;
     printf ("exectime %.3lf\n", diff.count());
+#ifdef ESTIMATOR_LOGGING
+    pasl::pctl::granularity::print_reports();
+#endif
+
 #ifdef LOGGING
     pasl::pctl::logging::dump();
     printf("number of created threads: %d\n", pasl::pctl::granularity::threads_created());

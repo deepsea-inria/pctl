@@ -361,6 +361,7 @@ static constexpr cost_type pessimistic = 1.0;
 
 namespace {
   
+<<<<<<< HEAD
 /*double cpu_frequency_ghz = 2.1;
 double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;*/
 
@@ -371,6 +372,13 @@ public:
   constexpr static double cpu_frequency_ghz = 2.1;
   constexpr static double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
 
+=======
+double cpu_frequency_ghz = 2.1;
+double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
+
+class estimator {
+private:
+>>>>>>> log number of reports to estimators
   
   constexpr static const double min_report_shared_factor = 2.0;
   constexpr static const double weighted_average_factor = 8.0;
@@ -423,6 +431,10 @@ public:
 #ifdef HONEST
 >>>>>>> nested loops works
   perworker_type<bool> to_be_estimated;
+#endif
+
+#ifdef ESTIMATOR_LOGGING
+  perworker_type<long> reports_number;
 #endif
 
   std::atomic<bool> estimated;
@@ -490,10 +502,17 @@ public:
 #endif
     privates.mine() = new_cst;
   }
+<<<<<<< HEAD
   
 <<<<<<< HEAD
 //public:
 =======
+=======
+
+#ifdef ESTIMATOR_LOGGING
+  void init();
+#else  
+>>>>>>> log number of reports to estimators
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
@@ -501,7 +520,12 @@ public:
     to_be_estimated.init(false);
 #endif
     estimated = false;
+#ifdef ESTIMATOR_LOGGING
+    int id = estimator_id++;
+    estimators[id] = this;
+#endif
   }
+#endif
   
 public:
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -525,6 +549,10 @@ public:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+  std::string get_name() {
+    return name;
+  }
+
   std::string get_name() {
     return name;
   }
@@ -600,15 +628,28 @@ public:
     return estimated.load();
   }
 
+#ifdef ESTIMATOR_LOGGING
+  long number_of_reports() {
+    return reports_number.reduce([&] (long a, long b) { return a + b; }, 0);
+  }
+#endif
+
   void report(complexity_type complexity, cost_type elapsed) {
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;    
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #ifdef REPORTS
     reports_number.mine()++;
 =======
+=======
+#ifdef ESTIMATOR_LOGGING
+    reports_number.mine()++;
+#endif
+
+>>>>>>> log number of reports to estimators
 #ifdef LOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 >>>>>>> nested loops works
@@ -778,6 +819,7 @@ cost_type kappa = 300.0;
 
 } // end namespace
 
+<<<<<<< HEAD
 #ifdef REPORTS
 std::atomic<int> estimator_id;
 estimator* estimators[10];
@@ -823,6 +865,32 @@ void estimator::destroy() {
 void estimator::output() {
   recorded_constants[name] = estimator::get_constant();
 }
+=======
+#ifdef ESTIMATOR_LOGGING
+std::atomic<int> estimator_id;
+estimator* estimators[10];
+
+void estimator::init() {
+    shared = cost::undefined;
+    privates.init(cost::undefined);
+#ifdef HOMEST
+    to_be_estimated.init(false);
+#endif
+    estimated = false;
+    int id = estimator_id++;
+    estimators[id] = this;
+    reports_number.init(0);
+}
+
+void print_reports() {
+  int total = estimator_id.load();
+  for (int i = 0; i < total; i++) {
+    std::cout << "Estimator " << estimators[i]->get_name() << " has " << estimators[i]->number_of_reports() << " reports" << std::endl;
+  }
+}
+#endif
+
+>>>>>>> log number of reports to estimators
   
 
 /*---------------------------------------------------------------------*/
