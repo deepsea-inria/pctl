@@ -212,12 +212,12 @@ static constexpr cost_type tiny = -3.0;
 static constexpr cost_type pessimistic = 1.0;
   
 } // end namespace
-  
+
 namespace {
   
 double cpu_frequency_ghz = 2.1;
 double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
-  
+
 class estimator {
 private:
   
@@ -232,6 +232,10 @@ private:
 
 #ifdef HONEST
   perworker_type<bool> to_be_estimated;
+#endif
+
+#ifdef ESTIMATOR_LOGGING
+  perworker_type<long> reports_number;
 #endif
 
   std::atomic<bool> estimated;
@@ -281,7 +285,10 @@ private:
 #endif
     privates.mine() = new_cst;
   }
-  
+
+#ifdef ESTIMATOR_LOGGING
+  void init();
+#else  
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
@@ -289,7 +296,12 @@ private:
     to_be_estimated.init(false);
 #endif
     estimated = false;
+#ifdef ESTIMATOR_LOGGING
+    int id = estimator_id++;
+    estimators[id] = this;
+#endif
   }
+#endif
   
 public:
   
@@ -303,6 +315,10 @@ public:
 #ifdef LOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, name.c_str());
 #endif
+  }
+
+  std::string get_name() {
+    return name;
   }
 
 #ifdef HONEST
@@ -416,13 +432,26 @@ public:
   
 =======
 
+<<<<<<< HEAD
 >>>>>>> nested loops works
+=======
+#ifdef ESTIMATOR_LOGGING
+  long number_of_reports() {
+    return reports_number.reduce([&] (long a, long b) { return a + b; }, 0);
+  }
+#endif
+
+>>>>>>> log number of reports to estimators
   void report(complexity_type complexity, cost_type elapsed) {
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+
+#ifdef ESTIMATOR_LOGGING
+    reports_number.mine()++;
+#endif
 
 #ifdef LOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
@@ -477,6 +506,31 @@ public:
 cost_type kappa = 300.0;
 
 } // end namespace
+
+#ifdef ESTIMATOR_LOGGING
+std::atomic<int> estimator_id;
+estimator* estimators[10];
+
+void estimator::init() {
+    shared = cost::undefined;
+    privates.init(cost::undefined);
+#ifdef HOMEST
+    to_be_estimated.init(false);
+#endif
+    estimated = false;
+    int id = estimator_id++;
+    estimators[id] = this;
+    reports_number.init(0);
+}
+
+void print_reports() {
+  int total = estimator_id.load();
+  for (int i = 0; i < total; i++) {
+    std::cout << "Estimator " << estimators[i]->get_name() << " has " << estimators[i]->number_of_reports() << " reports" << std::endl;
+  }
+}
+#endif
+
   
 /*---------------------------------------------------------------------*/
 /* Granularity-control policies */
