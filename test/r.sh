@@ -34,17 +34,20 @@ cmdline="g++ -std=gnu++11 -g -O0 -I ~/pctl/include -I ~/chunkedseq/include -I ~/
 
 if [[ $ext == "unkh" ]];
 then
-  cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DPCTL_CILK_PLUS -fcilkplus"
+#  cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DPCTL_CILK_PLUS -fcilkplus"
+  cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 fi
 
 if [[ $ext == "unko" ]];
 then
-  cmdline="${cmdline} -DESTIMATOR_LOGGING -DOPTIMISTIC -DPCTL_CILK_PLUS -fcilkplus"
+#  cmdline="${cmdline} -DESTIMATOR_LOGGING -DTIMING -DOPTIMISTIC -DPCTL_CILK_PLUS -fcilkplus"
+  cmdline="${cmdline} -DESTIMATOR_LOGGING -DOPTIMISTIC -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 fi
 
 if [[ $ext == "norm" ]];
 then
-  cmdline="${cmdline} -DESTIMATOR_LOGGING -DPCTL_CILK_PLUS -fcilkplus"
+#  cmdline="${cmdline} -DESTIMATOR_LOGGING -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
+  cmdline="${cmdline} -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 fi
 
 if [[ $ext == "log" ]];
