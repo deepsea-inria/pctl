@@ -178,14 +178,24 @@ static void try_write_constants_to_file() {
 
 /*---------------------------------------------------------------------*/
 /* */
+<<<<<<< HEAD
 int nb_proc = 40;
 #if defined(PLOGGING) || defined(THREADS)
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
+=======
+
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number;
+>>>>>>> last changes to commit
 #endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
+<<<<<<< HEAD
 #if defined(PLOGGING) || defined(THREADS)
+=======
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+>>>>>>> last changes to commit
   threads_number.mine()++;
 #endif
 #if defined(USE_PASL_RUNTIME)
@@ -202,7 +212,11 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
+<<<<<<< HEAD
 #if defined(PLOGGING) || defined(THREADS)
+=======
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+>>>>>>> last changes to commit
 int threads_created() {
   int value = threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
@@ -437,6 +451,11 @@ private:
   perworker_type<long> reports_number;
 #endif
 
+#ifdef TIMING
+  perworker_type<cycles_type> last_report;
+  double wait_report = 1000 * local_ticks_per_microsecond;
+#endif
+
   std::atomic<bool> estimated;
   
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -511,8 +530,12 @@ private:
 
 #ifdef ESTIMATOR_LOGGING
   void init();
+<<<<<<< HEAD
 #else  
 >>>>>>> log number of reports to estimators
+=======
+#else
+>>>>>>> last changes to commit
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
@@ -520,10 +543,7 @@ private:
     to_be_estimated.init(false);
 #endif
     estimated = false;
-#ifdef ESTIMATOR_LOGGING
-    int id = estimator_id++;
-    estimators[id] = this;
-#endif
+    last_report.init(0);
   }
 #endif
   
@@ -635,7 +655,18 @@ public:
 #endif
 
   void report(complexity_type complexity, cost_type elapsed) {
+<<<<<<< HEAD
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+#ifdef TIMING
+    cycles_type now_t = now();
+    if (now_t - last_report.mine() < wait_report) {
+      return;
+    }
+    last_report.mine() = now_t;
+#endif
+    
+>>>>>>> last changes to commit
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;    
 
@@ -880,6 +911,7 @@ void estimator::init() {
     int id = estimator_id++;
     estimators[id] = this;
     reports_number.init(0);
+    last_report.init(0);
 }
 
 void print_reports() {
@@ -1311,7 +1343,7 @@ void cstmt(control_by_prediction& contr,
 =======
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 
-  
+  c = execmode_combine(my_execmode(), c);
   if (c == Unknown) {
     cstmt_unknown(m, par_body_fct, estimator);
   } else if (c == Sequential) {
