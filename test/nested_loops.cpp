@@ -26,11 +26,11 @@ namespace pasl {
   namespace pctl {
     int m;
     double comp_outer(int l, int r) {
-      return m * (r - l);
+      return 1. * m * (r - l);
     }
 
     double comp_inner(int l, int r) {
-      return r - l;
+      return 1. * (r - l);
     }
 
     void ex() {
@@ -65,6 +65,9 @@ int main(int argc, char** argv) {
 
 #ifdef LOGGING
     pasl::pctl::logging::dump();
+#endif
+
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
     printf("number of created threads: %d\n", pasl::pctl::granularity::threads_created());
 #endif
   });
