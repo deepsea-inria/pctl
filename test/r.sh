@@ -88,6 +88,7 @@ cmdline="g++ -std=gnu++11 -fno-elide-constructors -g -O0 -I ~/pctl/include -I ~/
 if [[ $ext == "unkh" ]];
 then
 <<<<<<< HEAD
+<<<<<<< HEAD
 #  cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DPCTL_CILK_PLUS -fcilkplus"
   cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 fi
@@ -99,21 +100,31 @@ then
 =======
   cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DPCTL_CILK_PLUS -fcilkplus"
 >>>>>>> log number of reports to estimators
+=======
+#  cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DPCTL_CILK_PLUS -fcilkplus"
+  cmdline="${cmdline} -DESTIMATOR_LOGGING -DHONEST -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
+>>>>>>> last changes to commit
 fi
 
 if [[ $ext == "unko" ]];
 then
-  cmdline="${cmdline} -DESTIMATOR_LOGGING -DOPTIMISTIC -DPCTL_CILK_PLUS -fcilkplus"
+#  cmdline="${cmdline} -DESTIMATOR_LOGGING -DTIMING -DOPTIMISTIC -DPCTL_CILK_PLUS -fcilkplus"
+  cmdline="${cmdline} -DESTIMATOR_LOGGING -DOPTIMISTIC -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 fi
 
 if [[ $ext == "norm" ]];
 then
+<<<<<<< HEAD
 <<<<<<< HEAD
 #  cmdline="${cmdline} -DESTIMATOR_LOGGING -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
   cmdline="${cmdline} -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
 =======
   cmdline="${cmdline} -DESTIMATOR_LOGGING -DPCTL_CILK_PLUS -fcilkplus"
 >>>>>>> log number of reports to estimators
+=======
+#  cmdline="${cmdline} -DESTIMATOR_LOGGING -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
+  cmdline="${cmdline} -DTIMING -DPCTL_CILK_PLUS -fcilkplus"
+>>>>>>> last changes to commit
 fi
 
 if [[ $ext == "log" ]];

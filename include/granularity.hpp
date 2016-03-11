@@ -195,7 +195,11 @@ pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_numb
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 #if defined(PLOGGING) || defined(THREADS)
+=======
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+>>>>>>> last changes to commit
 =======
 #if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
 >>>>>>> last changes to commit
@@ -216,7 +220,11 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 } // end namespace
   
 <<<<<<< HEAD
+<<<<<<< HEAD
 #if defined(PLOGGING) || defined(THREADS)
+=======
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+>>>>>>> last changes to commit
 =======
 #if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
 >>>>>>> last changes to commit
@@ -481,6 +489,11 @@ private:
   perworker_type<long> reports_number;
 #endif
 
+#ifdef TIMING
+  perworker_type<cycles_type> last_report;
+  double wait_report = 1000 * local_ticks_per_microsecond;
+#endif
+
   std::atomic<bool> estimated;
   
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
@@ -566,8 +579,12 @@ private:
 
 #ifdef ESTIMATOR_LOGGING
   void init();
+<<<<<<< HEAD
 #else  
 >>>>>>> log number of reports to estimators
+=======
+#else
+>>>>>>> last changes to commit
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
@@ -588,6 +605,7 @@ private:
 #endif
     estimated = false;
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 #ifdef ESTIMATOR_LOGGING
@@ -595,6 +613,9 @@ private:
     estimators[id] = this;
 #endif
 >>>>>>> log number of reports to estimators
+=======
+    last_report.init(0);
+>>>>>>> last changes to commit
   }
 #endif
   
@@ -864,8 +885,11 @@ public:
 >>>>>>> log number of reports to estimators
   void report(complexity_type complexity, cost_type elapsed) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
+=======
+>>>>>>> last changes to commit
 #ifdef TIMING
     cycles_type now_t = now();
     if (now_t - last_report.mine() < wait_report) {
@@ -874,6 +898,9 @@ public:
     last_report.mine() = now_t;
 #endif
     
+<<<<<<< HEAD
+>>>>>>> last changes to commit
+=======
 >>>>>>> last changes to commit
     double elapsed_time = elapsed / local_ticks_per_microsecond;
 <<<<<<< HEAD
@@ -1166,11 +1193,15 @@ void estimator::init() {
     estimators[id] = this;
     reports_number.init(0);
 <<<<<<< HEAD
+<<<<<<< HEAD
 #ifdef TIMING
     last_report.init(0);
 #endif
 =======
 >>>>>>> log number of reports to estimators
+=======
+    last_report.init(0);
+>>>>>>> last changes to commit
 }
 
 void print_reports() {
@@ -1695,7 +1726,7 @@ void cstmt(control_by_prediction& contr,
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 =======
 
-  
+  c = execmode_combine(my_execmode(), c);
   if (c == Unknown) {
     cstmt_unknown(m, par_body_fct, estimator);
   } else if (c == Sequential) {
