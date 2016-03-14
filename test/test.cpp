@@ -28,6 +28,7 @@
   To get expected behaviour, one should run with n=10000000, m=400 and n=400,m=1000000
 */
 
+<<<<<<< HEAD
 template <class T>
 using array = parutils::array::array<T>;
 int n;
@@ -213,4 +214,8 @@ int main(int argc, char** argv) {
 
 
 
+<<<<<<< HEAD
 /***********************************************************************/
+=======
+/***********************************************************************/
+>>>>>>> reducers functions
