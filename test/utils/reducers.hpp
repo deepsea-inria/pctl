@@ -23,7 +23,8 @@ template <template <class Item> class Array, template <class Item> class ResultA
 void scan_exclusive_serial(Array<Item>& items, size_t l, size_t r, ResultArray<Item>& result, size_t result_offset, const Item& zero, const Multiply_fct& multiplication) {
   Item current = zero;
   for (int i = l; i < r; i++) {
-    current = result.at(result_offset + i - l) = multiplication(current, items[i]);  
+//
+    current = result.at(result_offset + i - l) = multiplication(current, items.at(i));  
   }
 }
 
@@ -79,12 +80,13 @@ template <template <class Item> class Array, template <class Item> class ResultA
 void scan_exclusive(Array<Item>& items, size_t l, size_t r, ResultArray<Item>& result, size_t result_offset, TmpArray<Item>& tmp_array, size_t tmp_offset, const Item& zero, const Multiply_fct& multiplication) {
   size_t blocks = (r - l + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
-    scan_exclusive_serial(items, 0, items.size(), result, 0, zero, multiplication);
+    scan_exclusive_serial(items, 0, r - l, result, 0, zero, multiplication);
     return;
   }
 
   pasl::pctl::parallel_for((size_t)0, blocks, [&] (size_t i) {
     tmp_array.at(tmp_offset + i) = reduce_serial(items, l + i * BLOCK_SIZE, l + std::min((i + 1) * BLOCK_SIZE, r - l), zero, multiplication);
+//    if (blocks == 2)
   });
   scan_exclusive(tmp_array, tmp_offset, tmp_offset + blocks, tmp_array, tmp_offset, tmp_array, tmp_offset + blocks, zero, multiplication);
   pasl::pctl::parallel_for((size_t)0, blocks, [&] (size_t i) {
