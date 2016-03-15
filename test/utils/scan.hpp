@@ -6,7 +6,6 @@
 #include <algorithm>
 #include "reduce.hpp"
 #include <iostream>
-#include "defines.hpp"
 
 #ifndef _PARUTILS_SCAN_H_
 #define _PARUTILS_SCAN_H_
@@ -15,8 +14,10 @@ namespace parutils {
 namespace array {
 namespace utils {
 
+#define BLOCK_SIZE 1024
+
 template <template <class Item> class Array, template <class Item> class ResultArray, class Item, class Multiply_fct>
-void scan_exclusive_serial(Array<Item>& items, int_t l, int_t r, ResultArray<Item>& result, int_t result_offset, const Item& identity, const Multiply_fct& multiplication) {
+void scan_exclusive_serial(Array<Item>& items, size_t l, size_t r, ResultArray<Item>& result, size_t result_offset, const Item& identity, const Multiply_fct& multiplication) {
   Item current = identity;
   for (int i = l; i < r; i++) {
 //
@@ -25,12 +26,12 @@ void scan_exclusive_serial(Array<Item>& items, int_t l, int_t r, ResultArray<Ite
 }
 
 template <template <class Item> class Array, class Item, class Multiply_fct>
-void scan_exclusive_serial(Array<Item>& items, int_t l, int_t r, const Item& identity, const Multiply_fct& multiplication) {
+void scan_exclusive_serial(Array<Item>& items, size_t l, size_t r, const Item& identity, const Multiply_fct& multiplication) {
   scan_exclusive_serial(items, l, r, items, l, multiplication);
 }
 
 template <template <class Item> class Array, template <class Item> class ResultArray, class Item, class Multiply_fct>
-void scan_inclusive_serial(Array<Item>& items, int_t l, int_t r, ResultArray<Item>& result, int_t result_offset, const Item& identity, const Multiply_fct& multiplication) {
+void scan_inclusive_serial(Array<Item>& items, size_t l, size_t r, ResultArray<Item>& result, size_t result_offset, const Item& identity, const Multiply_fct& multiplication) {
   result.at(result_offset) = identity;
   scan_exclusive_serial(items, result, l + 1, r, result_offset + 1, multiplication);
 }
@@ -53,20 +54,20 @@ Scan exclusive functions.
   \param multiplication multiplication function
 */
 template <template <class Item> class Array, template <class Item> class ResultArray, template <class Item> class TmpArray, class Item, class Multiply_fct>
-void scan_exclusive(Array<Item>& items, int_t l, int_t r, ResultArray<Item>& result, int_t result_offset, TmpArray<Item>& tmp_array, int_t tmp_offset, const Item& identity, const Multiply_fct& multiplication) {
-  int_t blocks = (r - l + BLOCK_SIZE - 1) / BLOCK_SIZE;
+void scan_exclusive(Array<Item>& items, size_t l, size_t r, ResultArray<Item>& result, size_t result_offset, TmpArray<Item>& tmp_array, size_t tmp_offset, const Item& identity, const Multiply_fct& multiplication) {
+  size_t blocks = (r - l + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
     scan_exclusive_serial(items, l, r, result, result_offset, identity, multiplication);
     return;
   }
 
-  pasl::pctl::parallel_for((int_t)0, blocks, [&] (int_t i) {
+  pasl::pctl::parallel_for((size_t)0, blocks, [&] (size_t i) {
     tmp_array.at(tmp_offset + i) = reduce_serial(items, l + i * BLOCK_SIZE, l + std::min((i + 1) * BLOCK_SIZE, r - l), identity, multiplication);
 //    if (blocks == 2)
 //      std::cerr << tmp_array.at(tmp_offset + i) << std::endl;
   });
   scan_exclusive(tmp_array, tmp_offset, tmp_offset + blocks, tmp_array, tmp_offset, tmp_array, tmp_offset + blocks, identity, multiplication);
-  pasl::pctl::parallel_for((int_t)0, blocks, [&] (int_t i) {
+  pasl::pctl::parallel_for((size_t)0, blocks, [&] (size_t i) {
 //    if (blocks == 2)
 //      std::cerr << tmp_array.at(tmp_offset + i) << std::endl;
     scan_exclusive_serial(items, l + i * BLOCK_SIZE, l + std::min((i + 1) * BLOCK_SIZE, r - l), result, result_offset + i * BLOCK_SIZE, i == 0 ? identity : tmp_array.at(tmp_offset + i - 1), multiplication);
@@ -84,7 +85,7 @@ void scan_exclusive(Array<Item>& items, int_t l, int_t r, ResultArray<Item>& res
 */
 template <template <class Item> class Array, template <class Item> class ResultArray, template <class Item> class TmpArray, class Item, class Multiply_fct>
 void scan_exclusive(Array<Item>& items, ResultArray<Item>& result, TmpArray<Item>& tmp_array, const Item& identity, const Multiply_fct& multiplication) {
-  int_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  size_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
     scan_exclusive_serial(items, result, 0, items.size(), 0, identity, multiplication);
     return;
@@ -102,7 +103,7 @@ void scan_exclusive(Array<Item>& items, ResultArray<Item>& result, TmpArray<Item
 */
 template <template <class Item> class Array, template <class Item> class ResultArray, class Item, class Multiply_fct>
 void scan_exclusive_no_tmp(Array<Item>& items, ResultArray<Item>& result, const Item& identity, const Multiply_fct& multiplication) {
-  int_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  size_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
     scan_exclusive_serial(items, 0, items.size(), result, 0, identity, multiplication);
     return;
@@ -171,7 +172,7 @@ void scan_inclusive(Array<Item>& items, ResultArray<Item>& result, TmpArray<Item
 */
 template <template <class Item> class Array, template <class Item> class ResultArray, class Item, class Multiply_fct>
 void scan_inclusive_no_tmp(Array<Item>& items, ResultArray<Item>& result, const Item& identity, const Multiply_fct& multiplication) {
-  int_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  size_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
     scan_exclusive_serial(items, 0, items.size(), result, 1, identity, multiplication);
     return;
