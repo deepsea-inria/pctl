@@ -13,7 +13,7 @@
 #include "dpsdatapar.hpp"
 #include "cmdline.hpp"
 #include "array.hpp"
-#include "reducers.hpp"
+#include "scan.hpp"
 #include <math.h>
 #include <chrono>
 
