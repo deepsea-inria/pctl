@@ -28,11 +28,8 @@
 
 #include "perworker.hpp"
 #include "plogging.hpp"
-<<<<<<< HEAD
 #include "pcallback.hpp"
 #include "cmdline.hpp"
-=======
->>>>>>> Renaming logging.hpp to plogging.hpp
 
 #ifndef _PCTL_GRANULARITY_H_
 #define _PCTL_GRANULARITY_H_
@@ -181,28 +178,14 @@ static void try_write_constants_to_file() {
 
 /*---------------------------------------------------------------------*/
 /* */
-<<<<<<< HEAD
 int nb_proc = 40;
 #if defined(PLOGGING) || defined(THREADS)
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
-=======
-
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
-pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number;
->>>>>>> last changes to commit
 #endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
-<<<<<<< HEAD
-<<<<<<< HEAD
 #if defined(PLOGGING) || defined(THREADS)
-=======
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
->>>>>>> last changes to commit
-=======
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
->>>>>>> last changes to commit
   threads_number.mine()++;
 #endif
 #if defined(USE_PASL_RUNTIME)
@@ -219,15 +202,7 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
-<<<<<<< HEAD
-<<<<<<< HEAD
 #if defined(PLOGGING) || defined(THREADS)
-=======
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
->>>>>>> last changes to commit
-=======
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
->>>>>>> last changes to commit
 int threads_created() {
   int value = threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
@@ -263,35 +238,12 @@ public:
   
 // names of configurations supported by the granularity controller
 using execmode_type = enum {
-<<<<<<< HEAD
   Force_parallel = 0,
   Force_sequential = 1,
   Sequential = 2,
   Parallel = 3,
   Unknown_sequential = 4,
   Unknown_parallel = 5
-=======
-  Force_parallel,
-  Force_sequential,
-  Sequential,
-  Parallel,
-  Unknown
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 };
 
 // `p` configuration of caller; `c` callee
@@ -389,7 +341,6 @@ static constexpr cost_type pessimistic = 1.0;
 
 namespace {
   
-<<<<<<< HEAD
 /*double cpu_frequency_ghz = 2.1;
 double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;*/
 
@@ -400,13 +351,6 @@ public:
   constexpr static double cpu_frequency_ghz = 2.1;
   constexpr static double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
 
-=======
-double cpu_frequency_ghz = 2.1;
-double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
-
-class estimator {
-private:
->>>>>>> log number of reports to estimators
   
   constexpr static const double min_report_shared_factor = 2.0;
   constexpr static const double weighted_average_factor = 8.0;
@@ -415,14 +359,6 @@ private:
 
   perworker_type<cost_type> privates;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 #ifdef HONEST
   perworker_type<bool> to_be_estimated;
 #endif
@@ -448,55 +384,6 @@ private:
   perworker_type<int> estimations_left;
 #endif
 
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-#ifdef HONEST
->>>>>>> nested loops works
-  perworker_type<bool> to_be_estimated;
-#endif
-
-#ifdef ESTIMATOR_LOGGING
-  perworker_type<long> reports_number;
-#endif
-
-#ifdef TIMING
-  perworker_type<cycles_type> last_report;
-#endif
-
-#ifdef TIMING
-  double wait_report = 1000 * local_ticks_per_microsecond;
-#endif
-
-  std::string name;
-=======
-  perworker_type<bool> to_be_estimated;
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-#ifdef HONEST
-  perworker_type<bool> to_be_estimated;
-#endif
->>>>>>> nested loops works
-
-#ifdef ESTIMATOR_LOGGING
-  perworker_type<long> reports_number;
-#endif
-
-#ifdef TIMING
-  perworker_type<cycles_type> last_report;
-  double wait_report = 1000 * local_ticks_per_microsecond;
-#endif
-
-  std::atomic<bool> estimated;
-  
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   cost_type get_constant() {
 #ifdef CONSTANTS
     return shared;
@@ -559,68 +446,8 @@ private:
 #endif
     privates.mine() = new_cst;
   }
-<<<<<<< HEAD
-<<<<<<< HEAD
   
-<<<<<<< HEAD
 //public:
-=======
-=======
-
-#ifdef ESTIMATOR_LOGGING
-  void init();
-<<<<<<< HEAD
-#else  
->>>>>>> log number of reports to estimators
-=======
-#else
->>>>>>> last changes to commit
-=======
-
-#ifdef ESTIMATOR_LOGGING
-  void init();
-<<<<<<< HEAD
-#else  
->>>>>>> log number of reports to estimators
-=======
-#else
->>>>>>> last changes to commit
-  void init() {
-    shared = cost::undefined;
-    privates.init(cost::undefined);
-<<<<<<< HEAD
-<<<<<<< HEAD
-#ifdef HOMEST
-    to_be_estimated.init(false);
-#endif
-    estimated = false;
-#ifdef TIMING
-    last_report.init(0);
-#endif
-=======
-=======
-#ifdef HOMEST
->>>>>>> nested loops works
-    to_be_estimated.init(false);
-#endif
-    estimated = false;
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-#ifdef ESTIMATOR_LOGGING
-    int id = estimator_id++;
-    estimators[id] = this;
-#endif
->>>>>>> log number of reports to estimators
-=======
-    last_report.init(0);
->>>>>>> last changes to commit
-  }
-#endif
-  
-public:
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   
   void init();
   void output();
@@ -639,17 +466,6 @@ public:
     pasl::pctl::callback::register_client(this);
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-  std::string get_name() {
-    return name;
-  }
-
-  std::string get_name() {
-    return name;
-  }
-
   std::string get_name() {
     return name;
   }
@@ -657,36 +473,11 @@ public:
 #ifdef HONEST
   void set_to_be_estimated(bool value) {
     to_be_estimated.mine() = value;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> nested loops works
-=======
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> nested loops works
   }
 
   bool is_to_be_estimated() {
     return to_be_estimated.mine();
   }
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> nested loops works
 #endif
 
 #if defined(HONEST) || defined(OPTIMISTIC)
@@ -728,240 +519,17 @@ public:
     }
 #endif
     
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-#endif
->>>>>>> nested loops works
-
-  bool is_undefined() {
-<<<<<<< HEAD
-    return estimated.load();
-  }
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-#ifdef ESTIMATOR_LOGGING
-  long number_of_reports() {
-    return reports_number.reduce([&] (long a, long b) { return a + b; }, 0);
-  }
-#endif
-
-=======
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-<<<<<<< HEAD
-=======
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-=======
-    return !estimated.load();
->>>>>>> suddenly unknown mode works
-  }
-<<<<<<< HEAD
->>>>>>> merge
->>>>>>> merge
-  
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
-
-<<<<<<< HEAD
->>>>>>> nested loops works
-<<<<<<< HEAD
->>>>>>> nested loops works
-=======
-=======
-#ifdef ESTIMATOR_LOGGING
-  long number_of_reports() {
-    return reports_number.reduce([&] (long a, long b) { return a + b; }, 0);
-  }
-#endif
-
->>>>>>> log number of reports to estimators
->>>>>>> log number of reports to estimators
-  void report(complexity_type complexity, cost_type elapsed) {
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
->>>>>>> last changes to commit
-#ifdef TIMING
-    cycles_type now_t = now();
-    if (now_t - last_report.mine() < wait_report) {
-      return;
-    }
-    last_report.mine() = now_t;
-#endif
-    
-<<<<<<< HEAD
->>>>>>> last changes to commit
-=======
->>>>>>> last changes to commit
     double elapsed_time = elapsed / local_ticks_per_microsecond;
-<<<<<<< HEAD
     cost_type measured_cst = elapsed_time / complexity;    
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 #ifdef REPORTS
     reports_number.mine()++;
-=======
-=======
-#ifdef ESTIMATOR_LOGGING
-    reports_number.mine()++;
-=======
-
-#ifdef ESTIMATOR_LOGGING
-    reports_number.mine()++;
 #endif
 
-#ifdef LOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
->>>>>>> log number of reports to estimators
-#endif
-=======
-    cost_type measured_cst = elapsed_time / complexity;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-
->>>>>>> log number of reports to estimators
-#ifdef LOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
-<<<<<<< HEAD
->>>>>>> nested loops works
-#endif
-
-<<<<<<< HEAD
-<<<<<<< HEAD
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
-=======
->>>>>>> nested loops works
 #endif
 
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #if defined(OPTIMISTIC) || defined(HONEST)
 /*    bool cold_run = false;
     if (!is_undefined()) {
@@ -1007,91 +575,15 @@ public:
         is_estimated.mine() = true;
         return;
       }*/
-=======
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return !estimated.load();
-  }
-  
-  void report(complexity_type complexity, cost_type elapsed) {
-    double elapsed_time = elapsed / local_ticks_per_microsecond;
-    cost_type measured_cst = elapsed_time / complexity;
-#if defined(OPTIMISTIC) || defined(HONEST)
-    if (!estimated.exchange(true)) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-#if defined(OPTIMISTIC) || defined(HONEST)
-    if (!estimated.exchange(true)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-#if defined(OPTIMISTIC) || defined(HONEST)
-    if (!estimated.exchange(true)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #else
     cost_type cst = get_constant();
     if (cst == cost::undefined) {
-#endif
       // handle the first measure without average
       update(measured_cst);
-<<<<<<< HEAD
     } else
 #endif
     {
 
-=======
-    } else {
-#if defined(OPTIMISTIC) || defined(HONEST)
-      cost_type cst = get_constant();
-#endif
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
       // compute weighted average
       update(((weighted_average_factor * cst) + measured_cst)
              / (weighted_average_factor + 1.0));
@@ -1128,8 +620,6 @@ cost_type kappa = 300.0;
 
 } // end namespace
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 #ifdef REPORTS
 std::atomic<int> estimator_id;
 estimator* estimators[10];
@@ -1175,47 +665,6 @@ void estimator::destroy() {
 void estimator::output() {
   recorded_constants[name] = estimator::get_constant();
 }
-=======
-=======
->>>>>>> log number of reports to estimators
-#ifdef ESTIMATOR_LOGGING
-std::atomic<int> estimator_id;
-estimator* estimators[10];
-
-void estimator::init() {
-    shared = cost::undefined;
-    privates.init(cost::undefined);
-#ifdef HOMEST
-    to_be_estimated.init(false);
-#endif
-    estimated = false;
-    int id = estimator_id++;
-    estimators[id] = this;
-    reports_number.init(0);
-<<<<<<< HEAD
-<<<<<<< HEAD
-#ifdef TIMING
-    last_report.init(0);
-#endif
-=======
->>>>>>> log number of reports to estimators
-=======
-    last_report.init(0);
->>>>>>> last changes to commit
-}
-
-void print_reports() {
-  int total = estimator_id.load();
-  for (int i = 0; i < total; i++) {
-    std::cout << "Estimator " << estimators[i]->get_name() << " has " << estimators[i]->number_of_reports() << " reports" << std::endl;
-  }
-}
-#endif
-
-<<<<<<< HEAD
->>>>>>> log number of reports to estimators
-=======
->>>>>>> log number of reports to estimators
   
 
 /*---------------------------------------------------------------------*/
@@ -1248,29 +697,11 @@ public:
 /*---------------------------------------------------------------------*/
 /* Controlled statements */
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 static inline
 double since_in_cycles(long long start) {
   return (get_wall_time() - start) * estimator::cpu_frequency_ghz;
 }
 
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #ifdef OPTIMISTIC
 perworker_type<cost_type> time_adjustment(0);
 #elif HONEST
@@ -1289,59 +720,14 @@ void cstmt_parallel(execmode_type c, const Body_fct& body_fct) {
   execmode.mine().block(c, body_fct);
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 template <class Body_fct>
 void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estimator& estimator) {
 #ifdef OPTIMISTIC
   cost_type upper_adjustment = time_adjustment.mine();
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-template <class Par_body_fct>
-void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& estimator) {
-#ifdef OPTIMISTIC
-  double upper_adjustment = time_adjustment.mine();
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
   time_adjustment.mine() = 0;
 #elif HONEST
   if (estimator.is_undefined() && !estimator.is_to_be_estimated()) {
     nested_unknown.mine()++;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     estimator.set_to_be_estimated(true);
   }
 #endif
@@ -1380,84 +766,6 @@ void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& est
 
 #ifdef OPTIMISTIC
   time_adjustment.mine() = upper_adjustment + time_adjustment.mine();//estimator.predict(std::max((complexity_type) 1, m)) - elapsed, (double)0);
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-    estimator.set_to_be_estimated();
-=======
-    estimator.set_to_be_estimated(true);
->>>>>>> nested loops works
-=======
-    estimator.set_to_be_estimated();
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-    estimator.set_to_be_estimated(true);
->>>>>>> nested loops works
-  }
-#endif
-
-  cost_type start = now();
-  execmode.mine().block(Unknown, par_body_fct);
-  cost_type elapsed = since(start);
-
-  if (estimator.is_undefined()) {
-#ifdef OPTIMISTIC
-<<<<<<< HEAD
-<<<<<<< HEAD
-    estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
-#elif HONEST
-    estimator.report(std::max((complexity_type) 1, m), elapsed);
-#endif
-  }
-
-#ifdef HONEST
-  if (estimator.is_to_be_estimated()) {
-    estimator.set_to_be_estimated(false);
-    nested_unknown.mine()--;
-  }
-#endif
-
-#ifdef OPTIMISTIC
-  time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-    elapsed += time_adjustment.mine();
-=======
-    estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
->>>>>>> suddenly unknown mode works
-#elif HONEST
-    estimator.report(std::max((complexity_type) 1, m), elapsed);
-#endif
-  }
-
-#ifdef HONEST
-  if (estimator.is_to_be_estimated()) {
-    estimator.set_to_be_estimated(false);
-    nested_unknown.mine()--;
-  }
-#endif
-
-#ifdef OPTIMISTIC
-  time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #endif
 }
 
@@ -1543,12 +851,6 @@ void cstmt(control_by_prediction& contr,
   execmode_type c;
 #ifdef OPTIMISTIC
   if (estimator.is_undefined()) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 //    c = estimator.predict(std::max((complexity_type)1, m)) <= kappa ? Unknown_sequential : Unknown_parallel;
     c = Unknown_parallel;
 //    m = complexity_measure_fct();
@@ -1565,113 +867,16 @@ void cstmt(control_by_prediction& contr,
   } else {
 #endif
 //    m = complexity_measure_fct();
-=======
-    c = Unknown;
-  } else {
-#elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
-    c = Unknown;
-  } else {
-#endif
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-    c = Unknown;
-  } else {
-#elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
-    c = Unknown;
-  } else {
-#endif
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-    c = Unknown;
-  } else {
-#elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
-    c = Unknown;
-  } else {
-#endif
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-    c = Unknown;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-  } else {
-#elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
-    c = Unknown;
-<<<<<<< HEAD
-<<<<<<< HEAD
-  } else {
-#endif
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-    c = Unknown;
-  } else {
-#elif HONEST
-  if (estimator.is_undefined()) {
-    c = Unknown;
-  } else if (nested_unknown.mine() > 0) {
-    c = Sequential;
-  } else {
-#endif
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-  } else {
-=======
-  } else {
-#elif HONEST
-  if (estimator.is_undefined()) {
-    c = Unknown;
-  } else if (nested_unknown.mine() > 0) {
-    c = Sequential;
-  } else {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  } else {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-#endif
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     if (m == complexity::tiny) {
       c = Sequential;
     } else if (m == complexity::undefined) {
       c = Parallel;
     } else {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
       if (
 #ifndef OPTIMISTIC
           my_execmode() == Sequential ||
 #endif
           estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
-=======
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
         c = Sequential;
       } else {
         c = Parallel;
@@ -1680,12 +885,6 @@ void cstmt(control_by_prediction& contr,
 #if defined(OPTIMISTIC) || defined(HONEST)
   }
 #endif
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
   c = execmode_combine(my_execmode(), c);
   if (c == Unknown_sequential) {
     cstmt_unknown(c, m, seq_body_fct, estimator);
@@ -1697,40 +896,6 @@ void cstmt(control_by_prediction& contr,
       cstmt_sequential(Sequential, seq_body_fct);
     } else
 #endif*/
-=======
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-
-  c = execmode_combine(my_execmode(), c);
-  if (c == Unknown) {
-    cstmt_unknown(m, par_body_fct, estimator);
-  } else if (c == Sequential) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-
-  c = execmode_combine(my_execmode(), c);
-  if (c == Unknown) {
-    cstmt_unknown(m, par_body_fct, estimator);
-  } else if (c == Sequential) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
     cstmt_parallel(c, par_body_fct);
@@ -1901,14 +1066,6 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
   return;
 #endif
   execmode_type mode = my_execmode();
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
   if ( (mode == Sequential) || (mode == Force_sequential)
 #if defined(HONEST) || defined(OPTIMISTIC)
     || (mode == Unknown_sequential)
@@ -1917,36 +1074,6 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
     || (mode == Unknown_parallel)
 #endif
   ) {
-=======
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-=======
->>>>>>> nested loops works
-  if ( (mode == Sequential) || (mode == Force_sequential)
-#ifdef HONEST
-    || (mode == Unknown)
-#endif
-  ) {
-<<<<<<< HEAD
->>>>>>> nested loops works
-=======
-  if ( (mode == Sequential) || (mode == Force_sequential) || (mode == Unknown)) {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> nested loops works
     f1();
     f2();
   } else {
@@ -2006,25 +1133,6 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 }
 
 
-
-template <class Last>
-std::string type_name() {
-  return std::string(typeid(Last).name());
-}
-
-template <class First, class Second, class ... Types>
-std::string type_name() {
-  return type_name<First>() + " " + type_name<Second, Types...>();
-}
-
-template <const char* method_name, int id, class ... Types>
-class controller_holder {
-public:
-  static control_by_prediction controller;
-};
-
-template <const char* method_name, int id, class ... Types>
-control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
 
 } // end namespace
 } // end namespace
