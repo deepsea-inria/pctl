@@ -29,16 +29,16 @@ namespace pasl {
       int n = pasl::util::cmdline::parse_or_default_int("n", 1000);
       parutils::array::array<int> x(n);
       x.fill(1);
-      int result = parutils::reducers::reduce(x, 0, [&] (int a, int b) { return a + b; });
+      int result = parutils::array::utils::reduce(x, 0, [&] (int a, int b) { return a + b; });
       printf("%d\n", result);
       for (int i = 0; i < 10; i++) {
         printf("x[%d] = %d\n", i * n / 10, x[i * n / 10]);
       }
-      parutils::array::array<int> scan_exclusive_result = parutils::reducers::scan_exclusive(x, 0, [&] (int a, int b) { return a + b; });
+      parutils::array::array<int> scan_exclusive_result = parutils::array::utils::scan_exclusive(x, 0, [&] (int a, int b) { return a + b; });
       for (int i = 0; i < 10; i++) {
         printf("scan_exclusive[%d] = %d\n", i * n / 10, scan_exclusive_result[i * n / 10]);
       }
-      parutils::array::array<int> scan_inclusive_result = parutils::reducers::scan_inclusive(x, 0, [&] (int a, int b) { return a + b; });
+      parutils::array::array<int> scan_inclusive_result = parutils::array::utils::scan_inclusive(x, 0, [&] (int a, int b) { return a + b; });
       for (int i = 0; i < 10; i++) {
         printf("scan_inclusive[%d] = %d\n", i * n / 10, scan_inclusive_result[i * n / 10]);
       }
