@@ -628,6 +628,7 @@ void print_reports() {
   int total = estimator_id.load();
   for (int i = 0; i < total; i++) {
     std::cout << "Estimator " << estimators[i]->get_name() << " has " << estimators[i]->number_of_reports() << " reports" << std::endl;
+<<<<<<< HEAD
   }
 }
 #endif
@@ -1140,3 +1141,314 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 
 #endif /*! _PCTL_GRANULARITY_H_ */
+=======
+  }
+}
+#endif
+
+  
+/*---------------------------------------------------------------------*/
+/* Granularity-control policies */
+
+class control {};
+
+class control_by_force_parallel : public control {
+public:
+  control_by_force_parallel(std::string) { }
+};
+
+class control_by_force_sequential : public control {
+public:
+  control_by_force_sequential(std::string) { }
+};
+
+class control_by_prediction : public control {
+public:
+  estimator e;
+  
+  control_by_prediction(std::string name = ""): e(name) { }
+  
+  estimator& get_estimator() {
+    return e;
+  }
+  
+};
+  
+/*---------------------------------------------------------------------*/
+/* Controlled statements */
+
+#ifdef OPTIMISTIC
+perworker_type<cost_type> time_adjustment(0);
+#elif HONEST
+perworker_type<int> nested_unknown(0);
+#endif
+
+template <class Body_fct>
+void cstmt_sequential(execmode_type c, const Body_fct& body_fct) {
+  execmode_type p = my_execmode();
+  execmode_type e = execmode_combine(p, c);
+  execmode.mine().block(e, body_fct);
+}
+
+template <class Body_fct>
+void cstmt_parallel(execmode_type c, const Body_fct& body_fct) {
+  execmode.mine().block(c, body_fct);
+}
+
+template <class Par_body_fct>
+void cstmt_unknown(complexity_type m, Par_body_fct& par_body_fct, estimator& estimator) {
+#ifdef OPTIMISTIC
+  double upper_adjustment = time_adjustment.mine();
+  time_adjustment.mine() = 0;
+#elif HONEST
+  if (estimator.is_undefined() && !estimator.is_to_be_estimated()) {
+    nested_unknown.mine()++;
+    estimator.set_to_be_estimated(true);
+  }
+#endif
+
+  cost_type start = now();
+  execmode.mine().block(Unknown, par_body_fct);
+  cost_type elapsed = since(start);
+
+  if (estimator.is_undefined()) {
+#ifdef OPTIMISTIC
+    estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine());
+#elif HONEST
+    estimator.report(std::max((complexity_type) 1, m), elapsed);
+#endif
+  }
+
+#ifdef HONEST
+  if (estimator.is_to_be_estimated()) {
+    estimator.set_to_be_estimated(false);
+    nested_unknown.mine()--;
+  }
+#endif
+
+#ifdef OPTIMISTIC
+  time_adjustment.mine() = upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed;
+#endif
+}
+
+template <class Seq_body_fct>
+void cstmt_sequential_with_reporting(complexity_type m,
+                                     Seq_body_fct& seq_body_fct,
+                                     estimator& estimator) {
+  cost_type start = now();
+  execmode.mine().block(Sequential, seq_body_fct);
+  cost_type elapsed = since(start);
+  estimator.report(std::max((complexity_type)1, m), elapsed);
+}
+  
+template <
+class Complexity_measure_fct,
+class Par_body_fct
+>
+void cstmt(control& contr,
+           const Complexity_measure_fct&,
+           const Par_body_fct& par_body_fct) {
+  cstmt_sequential(Force_parallel, par_body_fct);
+}
+
+template <class Par_body_fct>
+void cstmt(control_by_force_parallel&, const Par_body_fct& par_body_fct) {
+  cstmt_parallel(Force_parallel, par_body_fct);
+}
+
+// same as above but accepts all arguments to support general case
+template <
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(control_by_force_parallel& contr,
+           const Complexity_measure_fct&,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct&) {
+  cstmt(contr, par_body_fct);
+}
+
+template <class Seq_body_fct>
+void cstmt(control_by_force_sequential&, const Seq_body_fct& seq_body_fct) {
+  cstmt_sequential(Force_sequential, seq_body_fct);
+}
+
+// same as above but accepts all arguments to support general case
+template <
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(control_by_force_sequential& contr,
+           const Complexity_measure_fct&,
+           const Par_body_fct&,
+           const Seq_body_fct& seq_body_fct) {
+  cstmt(contr, seq_body_fct);
+}
+
+template <
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(control_by_prediction& contr,
+           const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+#ifdef PCTL_SEQUENTIAL_BASELINE
+  seq_body_fct();
+  return;
+#endif
+#if defined(PCTL_SEQUENTIAL_ELISION) || defined(PCTL_PARALLEL_ELISION)
+  par_body_fct();
+  return;
+#endif
+  estimator& estimator = contr.get_estimator();
+  complexity_type m = complexity_measure_fct();
+  execmode_type c;
+#ifdef OPTIMISTIC
+  if (estimator.is_undefined()) {
+    c = Unknown;
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+  } else {
+#elif HONEST
+  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
+    c = Unknown;
+<<<<<<< HEAD
+  } else {
+=======
+  } else {
+#elif HONEST
+  if (estimator.is_undefined()) {
+    c = Unknown;
+  } else if (nested_unknown.mine() > 0) {
+    c = Sequential;
+  } else {
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+=======
+  } else {
+>>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
+#endif
+    if (m == complexity::tiny) {
+      c = Sequential;
+    } else if (m == complexity::undefined) {
+      c = Parallel;
+    } else {
+      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
+        c = Sequential;
+      } else {
+        c = Parallel;
+      }
+    }
+#if defined(OPTIMISTIC) || defined(HONEST)
+  }
+#endif
+
+  c = execmode_combine(my_execmode(), c);
+  if (c == Unknown) {
+    cstmt_unknown(m, par_body_fct, estimator);
+  } else if (c == Sequential) {
+    cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
+  } else {
+    cstmt_parallel(c, par_body_fct);
+  }
+}
+
+template <
+class Complexity_measure_fct,
+class Par_body_fct
+>
+void cstmt(control_by_prediction& contr,
+           const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct) {
+  cstmt(contr, complexity_measure_fct, par_body_fct, par_body_fct);
+}
+
+// same as above but accepts all arguments to support general case
+template <
+class Cutoff_fct,
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(control_by_prediction& contr,
+           const Cutoff_fct&,
+           const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+  cstmt(contr, complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+  
+/*---------------------------------------------------------------------*/
+/* Granularity-control enriched fork join */
+
+template <class Body_fct1, class Body_fct2>
+void fork2(const Body_fct1& f1, const Body_fct2& f2) {
+#if defined(PCTL_SEQUENTIAL_ELISION) || defined(PCTL_SEQUENTIAL_BASELINE)
+  f1();
+  f2();
+  return;
+#endif
+#ifdef PCTL_PARALLEL_ELISION
+  primitive_fork2(f1, f2);
+  return;
+#endif
+  execmode_type mode = my_execmode();
+  if ( (mode == Sequential) || (mode == Force_sequential)
+#ifdef HONEST
+    || (mode == Unknown)
+#endif
+  ) {
+    f1();
+    f2();
+  } else {
+    primitive_fork2([&] {
+      execmode.mine().block(mode, f1);
+    }, [&] {
+      execmode.mine().block(mode, f2);
+    });
+  }
+}
+
+/***********************************************************************/
+
+template <class Last>
+std::string type_name() {
+  return std::string(typeid(Last).name());
+}
+
+template <class First, class Second, class ... Types>
+std::string type_name() {
+  return type_name<First>() + " " + type_name<Second, Types...>();
+}
+
+<<<<<<< HEAD
+template <const char* method_name, int id, class ... Types>
+=======
+template <int id, class ... Types>
+>>>>>>> special controller for any function
+class controller_holder {
+public:
+  static control_by_prediction controller;
+};
+
+<<<<<<< HEAD
+template <const char* method_name, int id, class ... Types>
+control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
+
+=======
+template <int id, class ... Types>
+control_by_prediction controller_holder<id, Types ...>::controller(std::string("controller_holder ") + std::to_string(id) + " " + type_name<Types ...>());
+>>>>>>> special controller for any function
+
+} // end namespace
+} // end namespace
+} // end namespace
+
+
+#endif /*! _PCTL_GRANULARITY_H_ */
+>>>>>>> special controller for any function
