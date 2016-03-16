@@ -56,7 +56,7 @@ Item reduce(Array<Item>& items, size_t l, size_t r, TmpArray<Item>& tmp_array, s
   Calculates the value of given multiplication function on elements of the given array using given temporary array.
   \param items array of elements
   \param tmp_array temporary array to hold the temporary work (should be at least approximately 2 * items.size() / BLOCK_SIZE length)
-  \param identity unary element for mulitplication function
+  \param identity identity element for mulitplication function
   \param multiplication multiplication function
 */
 template <template <class Item> class Array, template <class Item> class TmpArray, class Item, class Multiply_fct>
