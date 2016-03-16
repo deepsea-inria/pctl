@@ -1,6 +1,7 @@
 /*!
   \file
   \brief File contains two simple implementations of array.
+
   This file contains two simple implementations of array, which
   supports fill and subarray functions.
 */
@@ -21,6 +22,7 @@ namespace array {
 /*!
   \brief Simple array class, which is the wrapper of standart c++ array with additional parallel
   fill function and O(1) subarray function.
+
   \warning Not totally thread-safe. If there is copy-constructor and destruction happens together, then undefined behaviour.
 */
 
