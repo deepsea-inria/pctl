@@ -14,6 +14,7 @@
 #include "cmdline.hpp"
 #include "array.hpp"
 #include "scan.hpp"
+#include "weighted_map.hpp"
 #include "weighted_reduce.hpp"
 #include <math.h>
 #include <chrono>
@@ -30,12 +31,12 @@ namespace pasl {
       int n = pasl::util::cmdline::parse_or_default_int("n", 1000);
       parutils::array::array<int> x(n);
       x.fill(1);
-      int result = parutils::array::utils::weighted_reduce(x, 0, [&] (int a, int b) { return a + b; }, [&] (const int& x) { return 1; });
-      printf("%d\n", result);
-      parutils::array::array<int> map_result = parutils::array::utils::map(x, [&] (int x) { return 2; });
+/*      int result = parutils::array::utils::weighted_reduce_constant_multiplication(x, 0, [&] (int a, int b) { return a + b; }, [&] (int x) { return 1; });
+      printf("%d\n", result);*/
+      parutils::array::array<int> map_result = parutils::array::utils::map(x, [&] (int x) { return 2; });//, [&] (int x) { return 1; });
       for (int i = 0; i < 10; i++) {
         printf("map_result[%d] = %d\n", i * n / 10, map_result[i * n / 10]);
-      }
+      }                                                                     
 /*      int result = parutils::array::utils::reduce(x, 0, [&] (int a, int b) { return a + b; });
       printf("%d\n", result);
       for (int i = 0; i < 10; i++) {
