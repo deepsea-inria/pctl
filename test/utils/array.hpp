@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <atomic>
 #include "ploop.hpp"
 
 #ifndef _PARUTILS_ARRAY_H_
@@ -21,22 +22,27 @@ namespace array {
 /*!
   \brief Simple array class, which is the wrapper of standart c++ array with additional parallel
   fill function and O(1) subarray function.
+
+  \warning Not totally thread-safe. If there is copy-constructor and destruction happens together, then undefined behaviour.
 */
 
 template <class T>
 class array {
 protected:
+  std::atomic<int>* links; // smart pointer
   T* memory;
   size_t length;
-  bool array_holder = true;
+  size_t left;
+  size_t right;
 
 public:
   /*!
     Constructor, which creates array of given length.
     \param _length the length of array
   */
-  array(size_t _length): length(_length) {
+  array(size_t _length): length(_length), left(0), right(_length) {
     memory = new T[_length];
+    links = new std::atomic<int>(1);
   }
 
   /*!
@@ -44,7 +50,8 @@ public:
     \param _memory c++ array
     \param _length the length of passed array
   */
-  array(T* _memory, size_t _length): memory(_memory), length(_length) {
+  array(T* _memory, size_t _length): memory(_memory), length(_length), left(0), right(_length) {
+    links = new std::atomic<int>(1);
   }
 
   /*!
@@ -55,12 +62,15 @@ public:
     \throw std::out_of_range If the range is incorrect.
   */
   array(array<T>& src, size_t l, size_t r) {
-    if (l >= r || r > length) {
+    if (l >= r || r > right - left) {
       throw std::out_of_range("Out of bounds");
     }
-    memory = src.memory + l;
-    length = r - l;
-    array_holder = false;
+    links = src.links;
+    links++;
+    memory = src.memory;
+    length = src.length;
+    left = src.left + l;
+    right = src.left + r;
   }
 
   /*!
@@ -68,8 +78,12 @@ public:
     \param src array
   */
   array(const array<T>& src) {
+    links = src.links;
+    links++;
     memory = src.memory;
     length = src.length;
+    left = src.left;
+    right = src.right;
   }
 
   /*!
@@ -97,7 +111,7 @@ public:
     \param index the position of element in array
   */
   T& operator[](size_t index) {
-    return memory[index];
+    return memory[index + left];
   }
 
   /*!
@@ -106,18 +120,19 @@ public:
     \throw std::out_of_range If index is out of bounds.
   */                           
   T& at(size_t index) {
-    if (index < 0 || index >= length) {
+    if (index < 0 || index >= right - left) {
       throw std::out_of_range("Out of bounds");
     }
-    return memory[index];
+    return memory[index + left];
   }
 
   /*!
-    Destructor of array, which deletes underlying array only if was not created as subarray.
+    Destructor of array, which deletes underlying array only if there is no more links to it.
   */
   ~array() {
-    if (array_holder) {
+    if (!(*links--)) {
       delete [] memory;
+      delete links;
     }
   }
 };
@@ -157,7 +172,7 @@ public:
     \param r end position of subarray (exclusive)
   */
   array_fast_fill(array_fast_fill<T>& src, size_t l, size_t r): array<T>(src, l, r) {
-    time = src.time + l;
+    time = src.time;
     value = src.value;
     current_time = src.current_time;
   }
@@ -186,6 +201,7 @@ public:
     \param index the position of element in array
   */
   T& operator[](size_t index) {
+    index += array<T>::left;
     if (time[index] < current_time) {
       array<T>::memory[index] = value;
     }
@@ -198,18 +214,20 @@ public:
     \throw std::out_of_range If index is out of bounds
   */
   T& at(size_t index) {
-    if (index < 0 || index >= array<T>::length) {
+    if (index < 0 || index >= array<T>::right - array<T>::left) {
       throw std::out_of_range("Out of bounds");
     }
     return this->operator[](index);
   }
 
   /*!
-    Destructor of array, which deletes underlying array only if it was not created as subarray.
+    Destructor of array, which deletes underlying array only if there is no more links to it.
   */
   ~array_fast_fill() {
-    if (array<T>::array_holder) {
+    if (!(*array<T>::links--)) {
       delete [] time;
+      delete [] array<T>::memory;
+      delete [] array<T>::links;
     }
   }
 };
