@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "ploop.hpp"
 #include <iostream>
+#include "defines.hpp"
 
 #ifndef _PARUTILS_REDUCE_H_
 #define _PARUTILS_REDUCE_H_
@@ -14,14 +15,13 @@ namespace parutils {
 namespace array {
 namespace utils {
 
-#define BLOCK_SIZE 1024
-
 template <template <class Item> class Array, class Item, class Multiply_fct>
-Item reduce_serial(Array<Item>& items, size_t l, size_t r, const Item& identity, const Multiply_fct& multiplication) {
+Item reduce_serial(Array<Item>& items, int_t l, int_t r, const Item& identity, const Multiply_fct& multiplication) {
   Item result = identity;
   for (int i = l; i < r; ++i) {
     result = multiplication(result, items.at(i));
   }
+//  std::cerr << "";
   return result;
 }
 
@@ -39,13 +39,13 @@ Reduce functions.
   \param multiplication multiplication function
 */
 template <template <class Item> class Array, template <class Item> class TmpArray, class Item, class Multiply_fct>
-Item reduce(Array<Item>& items, size_t l, size_t r, TmpArray<Item>& tmp_array, size_t tmp_offset, const Item& identity, const Multiply_fct& multiplication) {
+Item reduce(Array<Item>& items, int_t l, int_t r, TmpArray<Item>& tmp_array, int_t tmp_offset, const Item& identity, const Multiply_fct& multiplication) {
   Item result = identity;
-  size_t blocks = (r - l + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  int_t blocks = (r - l + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
     return reduce_serial(items, l, r, identity, multiplication);
   }
-  pasl::pctl::parallel_for((size_t)0, blocks, [&] (size_t i) {
+  pasl::pctl::parallel_for((int_t)0, blocks, [&] (int_t i) {
     tmp_array.at(i + tmp_offset) = reduce_serial(items, l + i * BLOCK_SIZE, l + std::min((i + 1) * BLOCK_SIZE, r - l), identity, multiplication);
   });
 
@@ -73,7 +73,7 @@ Item reduce(Array<Item>& items, TmpArray<Item>& tmp_array, const Item& identity,
 */
 template <template <class Item> class Array, class Item, class Multiply_fct>
 Item reduce(Array<Item>& items, const Item& identity, const Multiply_fct& multiplication) {
-  size_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  int_t blocks = (items.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (blocks == 1) {
     return reduce_serial(items, 0, items.size(), identity, multiplication);
   }
