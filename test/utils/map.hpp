@@ -7,6 +7,7 @@
 #include "array.hpp"
 #include <iostream>
 #include <functional>
+#include "defines.hpp"
 
 #ifndef _PARUTILS_MAP_H_
 #define _PARUTILS_MAP_H_
@@ -16,7 +17,7 @@ namespace array {
 namespace utils {
 
 template <template <class Item> class Array, template <class Item> class ResultArray, class ItemIn, class ItemOut, class Map_fct>
-void map_serial(Array<ItemIn>& items, int l, int r, ResultArray<ItemOut>& result, int result_offset, const Map_fct& map_fct) {
+void map_serial(Array<ItemIn>& items, int_t l, int_t r, ResultArray<ItemOut>& result, int_t result_offset, const Map_fct& map_fct) {
  for (int i = l; i < r; ++i) {
    result.at(i - l + result_offset) = map_fct(items.at(i));
  }

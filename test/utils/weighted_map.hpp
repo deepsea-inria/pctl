@@ -8,6 +8,7 @@
 #include "map.hpp"
 #include "granularity.hpp"
 #include <iostream>
+#include "defines.hpp"
 
 #ifndef _PARUTILS_WEIGHTED_MAP_H_
 #define _PARUTILS_WEIGHTED_MAP_H_
@@ -17,8 +18,6 @@ namespace array {
 namespace utils {
 
 using cost_type = pasl::pctl::granularity::cost_type;
-
-#define BLOCK_SIZE 1024
 
 /*!
   Maps elements of given array in certain range into specified array balancing the workload depending on the complexity of
@@ -33,14 +32,14 @@ using cost_type = pasl::pctl::granularity::cost_type;
   \param map_fct function to map with
 */
 template <template <class Item> class Array, template <class Item> class ResultArray, class ItemIn, class ItemOut, class Complexity_fct, class Map_fct>
-void weighted_map(Array<ItemIn>& items, int l, int r, ResultArray<ItemOut>& result, int result_offset, const Complexity_fct& complexity, const Map_fct& map_fct) {
+void weighted_map(Array<ItemIn>& items, int_t l, int_t r, ResultArray<ItemOut>& result, int result_offset, const Complexity_fct& complexity, const Map_fct& map_fct) {
   using controller_type = pasl::pctl::granularity::controller_holder<1, Array<ItemIn>, ResultArray<ItemOut>, Complexity_fct, Map_fct>;
   pasl::pctl::granularity::cstmt(controller_type::controller, [&] { return complexity(l, r); }, [&] {
     if (r - l == 1) {
       result.at(result_offset) = map_fct(items.at(l));
       return;
     }
-    int mid = (r + l) >> 1;
+    int_t mid = (r + l) >> 1;
     pasl::pctl::granularity::fork2([&] {
       weighted_map(items, l, mid, result, result_offset, complexity, map_fct);
     }, [&] {
@@ -79,7 +78,7 @@ void weighted_map(Array<ItemIn>& items, ResultArray<ItemOut>& result, TmpArray<p
   tmp_array[0] = 0;
   scan_exclusive(tmp_array, 1, items.size() + 1, tmp_array, 1, tmp_array, items.size() + 1, (cost_type)0, [&] (cost_type a, cost_type b) { return a + b; });
   // Now prefix sum of weights contains in items[0,...,items.size()]
-  auto complexity = [&] (int l, int r) { return tmp_array[r] - tmp_array[l]; };
+  auto complexity = [&] (int_t l, int_t r) { return tmp_array[r] - tmp_array[l]; };
   weighted_map(items, result, complexity, map_fct);
 }
 

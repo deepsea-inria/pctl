@@ -3,7 +3,7 @@ split=(${1//./ })
 name=${split[0]}
 ext=${split[1]}
 
-cmdline="g++ -std=gnu++11 -g -O0 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -I ~/pctl/test/utils"
+cmdline="g++ -std=gnu++11 -fno-elide-constructors -g -O0 -I ~/pctl/include -I ~/chunkedseq/include -I ~/pbbs-pctl/include -I ~/pbbs-pctl/example/include -I ~/cmdline/include -I ~/pctl/test/utils"
 
 if [[ $ext == "unkh" ]];
 then
