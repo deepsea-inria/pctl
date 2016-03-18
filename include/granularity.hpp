@@ -1427,15 +1427,20 @@ std::string type_name() {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 template <const char* method_name, int id, class ... Types>
 =======
 template <int id, class ... Types>
 >>>>>>> special controller for any function
+=======
+template <const char* method_name, int id, class ... Types>
+>>>>>>> controller template fix
 class controller_holder {
 public:
   static control_by_prediction controller;
 };
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 template <const char* method_name, int id, class ... Types>
 control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
@@ -1444,6 +1449,10 @@ control_by_prediction controller_holder<method_name, id, Types ...>::controller(
 template <int id, class ... Types>
 control_by_prediction controller_holder<id, Types ...>::controller(std::string("controller_holder ") + std::to_string(id) + " " + type_name<Types ...>());
 >>>>>>> special controller for any function
+=======
+template <const char* method_name, int id, class ... Types>
+control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
+>>>>>>> controller template fix
 
 } // end namespace
 } // end namespace
