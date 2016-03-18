@@ -27,13 +27,33 @@
 
 template <class T>
 using array = parutils::array::array<T>;
-array<array<int>>* x;
+array<std::shared_ptr<array<int>>>* x;
 
 namespace pasl {
   namespace pctl {
 
     void ex() {
-      auto array_union = [&] (array<int>& a, array<int>& b) {
+//      auto split = parutils::array::utils::splitting::binary_splitting;
+      auto split = parutils::array::utils::splitting::binary_search_splitting;
+//      auto split = parutils::array::utils::splitting::hybrid_splitting;
+
+
+      auto array_union = [&] (std::shared_ptr<array<int>> a, std::shared_ptr<array<int>> b) {
+        auto c = std::make_shared<array<int>>(a->size() + b->size());
+        int size_a = a->size(), size_b = b->size();
+        for (int i = 0; i < size_a; i++) {
+          c->at(i) = a->at(i);
+        }
+        for (int i = 0; i < size_b; i++) {
+          c->at(i + size_a)= b->at(i);
+        }
+        return c;
+      };
+
+      auto zero = std::make_shared<array<int>>(0);
+      std::shared_ptr<array<int>> reduce_result = parutils::array::utils::weighted_sequence_reduce(*x, zero, array_union, [&] (std::shared_ptr<array<int>> x) { return x->size(); }, split);
+
+/*      auto array_union = [&] (array<int>& a, array<int>& b) {
         array<int> c(a.size() + b.size());
         int size_a = a.size(), size_b = b.size();
         for (int i = 0; i < size_a; i++) {
@@ -45,17 +65,14 @@ namespace pasl {
         return c;
       };
 
-//      auto split = parutils::array::utils::splitting::binary_splitting;
-//      auto split = parutils::array::utils::splitting::binary_search_splitting;
-      auto split = parutils::array::utils::splitting::hybrid_splitting;
 
       array<int> zero(0);
       array<int> reduce_result = parutils::array::utils::weighted_sequence_reduce(*x, zero, array_union, [&] (const array<int>& x) { return 1; }, split);
-      
+      */
       for (int i = 0; i < 10; i++) {
         int j = i * x->size() / 10;
         j = (j + 1) * (j + 2) / 2 - 1;
-        printf("reduce_result[%d] = %d\n", j, reduce_result.at(j));
+        printf("reduce_result[%d] = %d\n", j, reduce_result->at(j));
       }
 
 /*      parutils::array::array<int> x(n);
@@ -88,11 +105,11 @@ namespace pasl {
 int main(int argc, char** argv) {
   pbbs::launch(argc, argv, [&] {
     int n = pasl::util::cmdline::parse_or_default_int("n", 1000);
-    x = new array<array<int>>(n);
+    x = new array<std::shared_ptr<array<int>>>(n);
     for (int i = 0; i < n; i++) {
-      new (&x->at(i)) array<int>(i + 1);
+      new (&x->at(i)) std::shared_ptr<array<int>>(new array<int>(i + 1));
       for (int j = 0; j < i + 1; j++) {
-        x->at(i).at(j) = j;
+        x->at(i)->at(j) = j;
       }
     }
 
