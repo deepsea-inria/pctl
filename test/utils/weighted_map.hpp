@@ -17,6 +17,8 @@ namespace parutils {
 namespace array {
 namespace utils {
 
+constexpr char weighted_map_file[] = "weighted_map";
+
 using cost_type = pasl::pctl::granularity::cost_type;
 
 /*!
@@ -33,7 +35,7 @@ using cost_type = pasl::pctl::granularity::cost_type;
 */
 template <template <class Item> class Array, template <class Item> class ResultArray, class ItemIn, class ItemOut, class Complexity_fct, class Map_fct>
 void weighted_map(Array<ItemIn>& items, int_t l, int_t r, ResultArray<ItemOut>& result, int result_offset, const Complexity_fct& complexity, const Map_fct& map_fct) {
-  using controller_type = pasl::pctl::granularity::controller_holder<1, Array<ItemIn>, ResultArray<ItemOut>, Complexity_fct, Map_fct>;
+  using controller_type = pasl::pctl::granularity::controller_holder<weighted_map_file, 1, Array<ItemIn>, ResultArray<ItemOut>, Complexity_fct, Map_fct>;
   pasl::pctl::granularity::cstmt(controller_type::controller, [&] { return complexity(l, r); }, [&] {
     if (r - l == 1) {
       result.at(result_offset) = map_fct(items.at(l));

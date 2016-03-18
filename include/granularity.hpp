@@ -688,14 +688,14 @@ std::string type_name() {
   return type_name<First>() + " " + type_name<Second, Types...>();
 }
 
-template <int id, class ... Types>
+template <const char* method_name, int id, class ... Types>
 class controller_holder {
 public:
   static control_by_prediction controller;
 };
 
-template <int id, class ... Types>
-control_by_prediction controller_holder<id, Types ...>::controller(std::string("controller_holder ") + std::to_string(id) + " " + type_name<Types ...>());
+template <const char* method_name, int id, class ... Types>
+control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
 
 } // end namespace
 } // end namespace
