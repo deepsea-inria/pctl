@@ -18,6 +18,8 @@ namespace parutils {
 namespace array {
 namespace utils {
 
+constexpr char weighted_reduce_file[] = "weighted_reduce";
+
 using cost_type = pasl::pctl::granularity::cost_type;
 using complexity_type = std::function<cost_type(int_t, int_t)>;
 using splitting_type = std::function<std::pair<int_t, int_t>(int_t, int_t, int_t, const complexity_type&)>;
@@ -62,7 +64,7 @@ std::pair<int_t, int_t> hybrid_splitting(int_t depth, int_t l, int_t r, const co
 template <template <class Item> class Array, class Item, class Complexity_fct, class Multiply_fct, class Split_fct>
 Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct& complexity, const Item& identity, const Multiply_fct& multiplication, const Split_fct& split_fct, int_t depth = 0) {
   Item value;
-  using controller_type = pasl::pctl::granularity::controller_holder<1, Array<Item>, complexity_type, Multiply_fct, Split_fct>;
+  using controller_type = pasl::pctl::granularity::controller_holder<weighted_reduce_file, 1, Array<Item>, complexity_type, Multiply_fct, Split_fct>;
   pasl::pctl::granularity::cstmt(controller_type::controller, [&] { return complexity(l, r); }, [&] {
     if (r - l == 1) {
       value = items[l];
