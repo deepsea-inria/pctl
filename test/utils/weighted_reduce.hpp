@@ -25,10 +25,29 @@ using complexity_type = std::function<cost_type(int_t, int_t)>;
 using splitting_type = std::function<std::pair<int_t, int_t>(int_t, int_t, int_t, const complexity_type&)>;
 
 namespace splitting {
+
+/*!
+  Splitting function which uses binary split.
+
+  \param depth the depth between other recursion calls
+  \param l start position of range
+  \param r end position of range (exclusive)
+  \param complexity function which returns the complexity of reduce function application on subarray
+  \return pair (x, y) pair which splits array into three [l, x), [x, y) and [y, r)
+*/
 std::pair<int_t, int_t> binary_splitting(int_t depth, int_t l, int_t r, const complexity_type& complexity) {
   return std::make_pair((l + r) >> 1, (l + r) >> 1);
 }
 
+/*!
+  Splitting function which uses binary search split.
+
+  \param depth the depth between other recursion calls
+  \param l start position of range
+  \param r end position of range (exclusive)
+  \param complexity function which returns the complexity of reduce function application on subarray
+  \return pair (x, y) pair which splits array into three [l, x), [x, y) and [y, r)
+*/
 std::pair<int_t, int_t> binary_search_splitting(int_t depth, int_t left, int_t right, const complexity_type& complexity) {
   int_t l = left;
   int_t r = right;
@@ -50,6 +69,15 @@ std::pair<int_t, int_t> binary_search_splitting(int_t depth, int_t left, int_t r
   }
 }
 
+/*!
+  Splitting function which uses binary split or binary search split depending on the depth of recursion calls.
+
+  \param depth the depth between other recursion calls
+  \param l start position of range
+  \param r end position of range (exclusive)
+  \param complexity function which returns the complexity of reduce function application on subarray
+  \return pair (x, y) pair which splits array into three [l, x), [x, y) and [y, r)
+*/
 std::pair<int_t, int_t> hybrid_splitting(int_t depth, int_t l, int_t r, const complexity_type& complexity) {
   if (depth & 1 == 0) {
     return binary_splitting(depth, l, r, complexity);
@@ -61,8 +89,22 @@ std::pair<int_t, int_t> hybrid_splitting(int_t depth, int_t l, int_t r, const co
 
 // split_fct : l, r, complexity -> std::pair<int_t, int_t>
 // Split by (l, m, r) or (l, m, m + 1, r)
+/*!=====================================================================================================================
+  Calculates the value of given multiplication function on elements of the given array in certain range using binary splitting technique
+  where complexity function of reduce on subarray is given.
+
+  \param items array of elements
+  \param l start position of range
+  \param r end position of range (exclusive)
+  \param complexity function which returns the complexity of reduce function application on subarray
+  \param identity identity element of multiplication
+  \param multiplication multiplication function
+  \param split function which returns how to split subarray depending on complexity function
+  \param depth (optional) the depth between other weighted_reduce recursion calls 
+  \return result of reduce
+*/
 template <template <class Item> class Array, class Item, class Complexity_fct, class Multiply_fct, class Split_fct>
-Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct& complexity, const Item& identity, const Multiply_fct& multiplication, const Split_fct& split_fct, int_t depth = 0) {
+Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct& complexity, const Item& identity, const Multiply_fct& multiplication, const Split_fct& split, int_t depth = 0) {
   Item value;
   using controller_type = pasl::pctl::granularity::controller_holder<weighted_reduce_file, 1, Array<Item>, complexity_type, Multiply_fct, Split_fct>;
   pasl::pctl::granularity::cstmt(controller_type::controller, [&] { return complexity(l, r); }, [&] {
@@ -70,12 +112,12 @@ Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct&
       value = items[l];
       return;
     }
-    std::pair<int_t, int_t> mid = split_fct(depth, l, r, complexity);
+    std::pair<int_t, int_t> mid = split(depth, l, r, complexity);
     Item left, right;
     pasl::pctl::granularity::fork2([&] {
-      left = weighted_reduce(items, l, mid.first, complexity, identity, multiplication, split_fct, depth + 1);
+      left = weighted_reduce(items, l, mid.first, complexity, identity, multiplication, split, depth + 1);
     }, [&] {
-      right = weighted_reduce(items, mid.second, r, complexity, identity, multiplication, split_fct, depth + 1);
+      right = weighted_reduce(items, mid.second, r, complexity, identity, multiplication, split, depth + 1);
     });
     value = multiplication(left, right);
     if (mid.first != mid.second) {
@@ -88,17 +130,6 @@ Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct&
 }
 
 
-/*!
-  Calculates the value of given multiplication function on elements of the given array in certain range using binary splitting technique
-  where complexity function of reduce on subarray is given.
-
-  \param items array of elements
-  \param l start position of range
-  \param r end position of range (exclusive)
-  \param complexity function which returns the complexity of reduce function application on subarray
-  \param identity identity element of multiplication
-  \param multiplication multiplication function
-*/
 /*template <template <class Item> class Array, class Complexity_fct, class Item, class Multiply_fct>
 Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct& complexity, const Item& identity, const Multiply_fct& multiplication) {
   Item value;
@@ -130,10 +161,12 @@ Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct&
   \param complexity function which returns the complexity of reduce function application on subarray
   \param identity identity element of multiplication
   \param multiplication multiplication function
+  \param split function which returns how to split subarray depending on complexity function
+  \return result of reduce
 */
 template <template <class Item> class Array, class Complexity_fct, class Item, class Multiply_fct, class Split_fct>
-Item weighted_reduce(Array<Item>& items, const Complexity_fct& complexity, const Item& identity, const Multiply_fct& multiplication, const Split_fct& split_fct) {
-  return weighted_reduce(items, 0, items.size(), complexity, identity, multiplication, split_fct);
+Item weighted_reduce(Array<Item>& items, const Complexity_fct& complexity, const Item& identity, const Multiply_fct& multiplication, const Split_fct& split) {
+  return weighted_reduce(items, 0, items.size(), complexity, identity, multiplication, split);
 }
 
 /*!
@@ -145,16 +178,18 @@ Item weighted_reduce(Array<Item>& items, const Complexity_fct& complexity, const
   \param identity identity element of multiplication
   \param multiplication multiplication function
   \param weight function which returns the weight (complexity) of element with type pasl::granularity::cost_type
+  \param split function
+  \return result of reduce
 */
 template <template <class Item> class Array, template <class Item> class TmpArray, class Item, class Weight_fct, class Multiply_fct, class Split_fct>
-Item weighted_sequence_reduce(Array<Item>& items, TmpArray<cost_type>& tmp_array, const Item& identity, const Multiply_fct& multiplication, const Weight_fct& weight, const Split_fct& split_fct) {
+Item weighted_sequence_reduce(Array<Item>& items, TmpArray<cost_type>& tmp_array, const Item& identity, const Multiply_fct& multiplication, const Weight_fct& weight, const Split_fct& split) {
   map(items, 0, items.size(), tmp_array, 1, weight);
 //  std::cerr << tmp_array.at(20) << std::endl;
   tmp_array[0] = 0;
   scan_exclusive(tmp_array, 1, items.size() + 1, tmp_array, 1, tmp_array, items.size() + 1, (cost_type)0, [&] (cost_type a, cost_type b) { return a + b; });
   // Now prefix sum of weights contains in items[0,...,items.size()]
   auto complexity = [&] (int l, int r) { return tmp_array[r] - tmp_array[l]; };
-  return weighted_reduce(items, complexity, identity, multiplication, split_fct);
+  return weighted_reduce(items, complexity, identity, multiplication, split);
 }
 
 /*!
@@ -165,6 +200,9 @@ Item weighted_sequence_reduce(Array<Item>& items, TmpArray<cost_type>& tmp_array
   \param identity identity element of multiplication
   \param multiplication multiplication function
   \param weight function which returns the weight (complexity) of element with type pasl::granularity::cost_type
+  \return result of reduce
+
+  \warning If Item is pointer, then to not have a memory loss it is better to use shared_ptr<Item>.
 */
 template <template <class Item> class Array, class Item, class Weight_fct, class Multiply_fct, class Split_fct>
 Item weighted_sequence_reduce(Array<Item>& items, const Item& identity, const Multiply_fct& multiplication, const Weight_fct& weight, const Split_fct& split) {

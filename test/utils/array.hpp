@@ -47,8 +47,10 @@ protected:
   void clear() {
     if (length + 1 > 0) {
       if (!(--(*links))) {
-        for (int i = 0; i < length; i++) {
-          memory[i].~T();
+        if (!std::is_integral<T>()) {
+          for (int i = 0; i < length; i++) {
+            memory[i].~T();
+          }
         }
         free(memory);
         delete links;
@@ -88,7 +90,7 @@ public:
     \throw std::out_of_range If the range is incorrect.
   */
   array(array<T>& src, int_t l, int_t r) {
-    if (l >= r || r > right - left) {
+    if (l >= r || r > src.right - src.left) {
       throw std::out_of_range("Out of bounds");
     }
     links = src.links;
@@ -119,7 +121,7 @@ public:
     \return length of the array.
   */
   int size() {
-    return length;
+    return right - left;
   }
 
   /*!
