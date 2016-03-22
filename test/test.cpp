@@ -17,6 +17,7 @@
 #include "weighted_map.hpp"
 #include "weighted_reduce.hpp"
 #include "filter.hpp"
+#include "merges.hpp"
 #include <math.h>
 #include <chrono>
 
@@ -30,6 +31,21 @@ template <class T>
 using array = parutils::array::array<T>;
 array<std::shared_ptr<array<int>>>* x;
 int n;
+
+void merge_test() {
+  array<int> a(n);
+  array<int> b(n);
+
+  pasl::pctl::parallel_for(0, n, [&] (int i) {
+    a.at(i) = 2 * i;
+    b.at(i) = 2 * i + 1;
+  });
+
+  array<int> result = parutils::array::utils::merge_bs(a, b, [&] (int a, int b) { return a - b; });
+  for (int i = 0; i < 10; i++) {
+    printf("merge_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
+  }
+}
 
 void filter_test() {
   array<int> x(n);
@@ -139,7 +155,8 @@ namespace pasl {
   namespace pctl {
 
     void ex() {
-     filter_test();
+      merge_test();
+//     filter_test();
 //   ret
     }                                                                                                                  
   }
