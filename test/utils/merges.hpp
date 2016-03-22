@@ -176,7 +176,7 @@ void merge_bs(ArrayA<Item>& a, int_t a_l, int_t a_r, ArrayB<Item>& b, int_t b_l,
   }
   pasl::pctl::granularity::cstmt(controller_type::controller, [&] { return size; }, [&] {
     int_t m = (a_l + a_r) >> 1;
-    int_t pos = lower_bound(b, b_l, b_r, a.at(m)) + 1;
+    int_t pos = lower_bound(b, b_l, b_r, a.at(m), compare) + 1;
     merge_bs(a, a_l, m, b, b_l, pos, result, result_offset, compare);
     merge_bs(a, m, a_r, b, pos, b_r, result, result_offset + (m - a_l) + (pos - b_l), compare);
   }, [&] {
