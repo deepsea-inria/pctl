@@ -165,21 +165,27 @@ array<Item> merge(ArrayA<Item>& a, ArrayB<Item>& b, const Compare_fct& compare) 
 */
 template <template <class Item> class ArrayA, template <class Item> class ArrayB, template <class Item> class ResultArray, class Item, class Compare_fct>
 void merge_bs(ArrayA<Item>& a, int_t a_l, int_t a_r, ArrayB<Item>& b, int_t b_l, int_t b_r, ResultArray<Item>& result, int_t result_offset, const Compare_fct& compare) {
-  if (a.size() < b.size()) {
+//  std::cerr << a_r << " " << a_l << " " << b_l << " " << b_r << "\n";
+  if (a_r - a_l < b_r - b_l) {
     merge_bs(b, b_l, b_r, a, a_l, a_r, result, result_offset, compare);
     return;
   }
   using controller_type = pasl::pctl::granularity::controller_holder<merge_file, 2, ArrayA<Item>, ArrayB<Item>, ResultArray<Item>, Compare_fct>;
   int_t size = (a_r - a_l) + (b_r - b_l);
-  if (size <= 1) {
+  if (size <= 2) {
     merge_two_parts(a, a_l, a_r, b, b_l, b_r, result, result_offset, compare);
+    return;
   }
+//  std::cerr << (controller_type::controller).get_estimator().get_name() << std::endl;
   pasl::pctl::granularity::cstmt(controller_type::controller, [&] { return size; }, [&] {
     int_t m = (a_l + a_r) >> 1;
     int_t pos = lower_bound(b, b_l, b_r, a.at(m), compare) + 1;
-    merge_bs(a, a_l, m, b, b_l, pos, result, result_offset, compare);
-    merge_bs(a, m, a_r, b, pos, b_r, result, result_offset + (m - a_l) + (pos - b_l), compare);
+    pasl::pctl::granularity::fork2(
+      [&] { merge_bs(a, a_l, m, b, b_l, pos, result, result_offset, compare); },
+      [&] { merge_bs(a, m, a_r, b, pos, b_r, result, result_offset + (m - a_l) + (pos - b_l), compare); }
+    );
   }, [&] {
+//    std::cerr << a_l << " " << a_r << " " << b_l << " " << b_r << "\n";
     merge_two_parts(a, a_l, a_r, b, b_l, b_r, result, result_offset, compare);
   });
 }
