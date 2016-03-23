@@ -53,10 +53,10 @@ void filter_test() {
     x[i] = i;
   });
   array<int> result = parutils::array::utils::filter(x, [&] (int x) { return x % 2 == 0; });
-  printf("filter_result size = %d\n", result.size());
+/*  printf("filter_result size = %d\n", result.size());
   for (int i = 0; i < 10; i++) {
     printf("filter_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
-  }
+  }*/
 }
 
 void weighted_reduce_shr_ptr_test() {
