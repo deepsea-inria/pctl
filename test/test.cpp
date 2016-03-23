@@ -18,6 +18,7 @@
 #include "weighted_reduce.hpp"
 #include "filter.hpp"
 #include "merges.hpp"
+#include "mergesort.hpp"
 #include <math.h>
 #include <chrono>
 
@@ -31,6 +32,17 @@ template <class T>
 using array = parutils::array::array<T>;
 array<std::shared_ptr<array<int>>>* x;
 int n;
+
+void merge_sort_test() {
+  array<int> a(n);
+  pasl::pctl::parallel_for (0, n, [&] (int i) {
+    a.at(i) = n - i;
+  });
+  array<int> result = parutils::array::utils::merge_sort(a, [&] (int a, int b) { return a - b; });
+  for (int i = 0; i < 10; i++) {
+    printf("merge_sort_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
+  }
+}
 
 void merge_test() {
   array<int> a(n);
@@ -53,10 +65,10 @@ void filter_test() {
     x[i] = i;
   });
   array<int> result = parutils::array::utils::filter(x, [&] (int x) { return x % 2 == 0; });
-/*  printf("filter_result size = %d\n", result.size());
+  printf("filter_result size = %d\n", result.size());
   for (int i = 0; i < 10; i++) {
     printf("filter_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
-  }*/
+  }
 }
 
 void weighted_reduce_shr_ptr_test() {
@@ -155,7 +167,8 @@ namespace pasl {
   namespace pctl {
 
     void ex() {
-      merge_test();
+      merge_sort_test();
+//      merge_test();
 //     filter_test();
 //   ret
     }                                                                                                                  
