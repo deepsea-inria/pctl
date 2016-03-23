@@ -453,6 +453,9 @@ private:
 
 #ifdef TIMING
   perworker_type<cycles_type> last_report;
+#endif
+
+#ifdef TIMING
   double wait_report = 1000 * local_ticks_per_microsecond;
 #endif
 
@@ -543,7 +546,9 @@ private:
     to_be_estimated.init(false);
 #endif
     estimated = false;
+#ifdef TIMING
     last_report.init(0);
+#endif
   }
 #endif
   
@@ -911,7 +916,9 @@ void estimator::init() {
     int id = estimator_id++;
     estimators[id] = this;
     reports_number.init(0);
+#ifdef TIMING
     last_report.init(0);
+#endif
 }
 
 void print_reports() {
