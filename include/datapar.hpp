@@ -1113,7 +1113,7 @@ long max_index(Iter lo, Iter hi, const Item& id, const Comp& comp, const Lift& l
     for (Iter it = _lo; it != _hi; it++, i++) {
       const Item& x = *it;
       if (comp(x, res.second)) {
-        res = result_type(i, x);
+        res = result_type(i, lift(i, x));
       }
     }
     return res;
