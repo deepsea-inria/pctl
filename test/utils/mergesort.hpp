@@ -33,17 +33,14 @@ void merge_sort_seq(Array<Item>& a, int_t left, int_t right, ResultArray<Item>& 
     return;
   }
   if (left + 1 == right) {
-    result.at(result_offset) = a.at(left);
+    result[result_offset] = a[left];
     return;
   }
   int_t mid = (left + right) >> 1;
-//  std::cerr << left << " " << mid << " " << right << std::endl;
   merge_sort_seq(a, left, mid, result, result_offset, tmp_array, tmp_offset, compare);
   merge_sort_seq(a, mid, right, result, result_offset + mid - left, tmp_array, tmp_offset + mid - left, compare);
   merge_two_parts(result, left, mid, result, mid, right, tmp_array, tmp_offset, compare);
-  for (int_t i = 0; i < right - left; i++) {
-    result.at(result_offset + i) = tmp_array.at(tmp_offset + i);
-  }
+  std::copy(tmp_array.begin() + tmp_offset, tmp_array.begin() + tmp_offset + right - left, result.begin() + result_offset);
 }
 
 /*!
@@ -89,8 +86,10 @@ void merge_sort(Array<Item>& a, int_t left, int_t right, ResultArray<Item>& resu
       merge_sort(a, mid, right, result, result_offset + mid - left, tmp_array, tmp_offset + mid - left, compare);
     });
     merge(result, left, mid, result, mid, right, tmp_array, tmp_offset, compare);
-    pasl::pctl::parallel_for(0, right - left, [&] (int_t i) {
+    pasl::pctl::range::parallel_for(0, right - left, [&] (int_t l, int_t r) { return r - l; }, [&] (int_t i) {
       result.at(result_offset + i) = tmp_array.at(tmp_offset + i);
+    }, [&] (int_t l, int_t r) {
+      std::copy(tmp_array.begin() + tmp_offset + l, tmp_array.begin() + tmp_offset + r, result.begin() + result_offset + l);
     });
   }, [&] {
     merge_sort_seq(a, left, right, result, result_offset, tmp_array, tmp_offset, compare);
