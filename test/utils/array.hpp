@@ -120,7 +120,7 @@ public:
   /*!
     \return length of the array.
   */
-  int size() {
+  int size() const {
     return right - left;
   }
 
@@ -155,6 +155,14 @@ public:
       throw std::out_of_range("Out of bounds");
     }
     return memory[index + left];
+  }
+
+  T* begin() {
+    return memory + left;
+  }
+
+  T* end() {
+    return memory + right;
   }
 
   /*!
