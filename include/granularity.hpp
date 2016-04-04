@@ -224,8 +224,6 @@ private:
   constexpr static const double min_report_shared_factor = 2.0;
   constexpr static const double weighted_average_factor = 8.0;
   
-  std::string name;
-  
   cost_type shared;
 
   perworker_type<cost_type> privates;
@@ -245,6 +243,8 @@ private:
 #ifdef TIMING
   double wait_report = 1000 * local_ticks_per_microsecond;
 #endif
+
+  std::string name;
 
   std::atomic<bool> estimated;
   

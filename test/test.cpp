@@ -69,8 +69,8 @@ void filter_test() {
   for (int i = 0; i < 10; i++) {
     printf("filter_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
   }
-} 
-/* 
+}
+ 
 void weighted_reduce_shr_ptr_test() {
   array<std::shared_ptr<array<int>>> x(n);
 
@@ -145,7 +145,7 @@ void weighted_reduce_staight_test() {
     printf("reduce_result[%d] = %d\n", j, reduce_result.at(j));
   }
 }
-*/
+
 void map_test() {
   parutils::array::array<int> x(n);
   x.fill(1);
@@ -195,18 +195,18 @@ namespace pasl {
 /*---------------------------------------------------------------------*/
 
 int main(int argc, char** argv) {
-/*  pbbs::launch(argc, argv, [&] {
+  pbbs::launch(argc, argv, [&] {
     n = pasl::util::cmdline::parse_or_default_int("n", 1000);
 
     auto start = std::chrono::system_clock::now();
-//    pasl::pctl::ex();
+    pasl::pctl::ex();
     auto end = std::chrono::system_clock::now();
 
     //del;
 
     std::chrono::duration<float> diff = end - start;
     printf ("exectime %.3lf\n", diff.count());
-  });*/
+  });
   return 0;
 
 }
