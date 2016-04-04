@@ -30,14 +30,14 @@
 
 template <class T>
 using array = parutils::array::array<T>;
-array<std::shared_ptr<array<int>>>* x;
 int n;
 
 void merge_sort_test() {
   array<int> a(n);
-  pasl::pctl::parallel_for (0, n, [&] (int i) {
+  pasl::pctl::parallel_for(0, n, [&] (int i) {
     a.at(i) = n - i;
   });
+//  std::sort(a.begin(), a.end());
   array<int> result = parutils::array::utils::merge_sort(a, [&] (int a, int b) { return a - b; });
   for (int i = 0; i < 10; i++) {
     printf("merge_sort_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
@@ -69,9 +69,18 @@ void filter_test() {
   for (int i = 0; i < 10; i++) {
     printf("filter_result[%d] = %d\n", i * result.size() / 10, result.at(i * result.size() / 10));
   }
-}
-
+} 
+/* 
 void weighted_reduce_shr_ptr_test() {
+  array<std::shared_ptr<array<int>>> x(n);
+
+  pasl::pctl::parallel_for(0, n, [&] (int i) {
+    new (&x.at(i)) std::shared_ptr<array<int>>(new array<int>(i + 1));
+    pasl::pctl::parallel_for(0, i + 1, [&] (int j) {
+      x.at(i)->at(j) = j;
+    });
+  });
+
   auto split = parutils::array::utils::splitting::binary_splitting;
 //  auto split = parutils::array::utils::splitting::binary_search_splitting;
 //  auto split = parutils::array::utils::splitting::hybrid_splitting;
@@ -91,19 +100,27 @@ void weighted_reduce_shr_ptr_test() {
   };
 
   auto zero = std::make_shared<array<int>>(0);
-  std::shared_ptr<array<int>> reduce_result = parutils::array::utils::weighted_sequence_reduce(*x, zero, array_union, [&] (std::shared_ptr<array<int>> x) { return x->size(); }, split);
+  std::shared_ptr<array<int>> reduce_result = parutils::array::utils::weighted_sequence_reduce(x, zero, array_union, [&] (std::shared_ptr<array<int>> x) { return x->size(); }, split);
 
   for (int i = 0; i < 10; i++) {
-    int j = i * x->size() / 10;
+    int j = i * x.size() / 10;
     j = (j + 1) * (j + 2) / 2 - 1;
     printf("reduce_result[%d] = %d\n", j, reduce_result->at(j));
   }
 }
 
-/*void weighted_reduce_staight_test() {
+void weighted_reduce_staight_test() {
   auto split = parutils::array::utils::splitting::binary_splitting;
 //  auto split = parutils::array::utils::splitting::binary_search_splitting;
 //  auto split = parutils::array::utils::splitting::hybrid_splitting;
+
+  array<array<int>> x(n);
+  pasl::pctl::parallel_for(0, n, [&] (int i) {
+    new (&x.at(i)) array<int>(i + 1);
+    pasl::pctl::parallel_for(0, i + 1, [&] (int j) {
+      x.at(i).at(j) = j;
+    });
+  });
 
   auto array_union = [&] (array<int>& a, array<int>& b) {
     array<int> c(a.size() + b.size());
@@ -120,15 +137,15 @@ void weighted_reduce_shr_ptr_test() {
   };
 
   array<int> zero(0);
-  array<int> reduce_result = parutils::array::utils::weighted_sequence_reduce(*x, zero, array_union, [&] (const array<int>& x) { return x.size(); }, split);
+  array<int> reduce_result = parutils::array::utils::weighted_sequence_reduce(x, zero, array_union, [&] (const array<int>& x) { return x.size(); }, split);
 
   for (int i = 0; i < 10; i++) {
-    int j = i * x->size() / 10;
+    int j = i * x.size() / 10;
     j = (j + 1) * (j + 2) / 2 - 1;
     printf("reduce_result[%d] = %d\n", j, reduce_result.at(j));
   }
-}*/
-
+}
+*/
 void map_test() {
   parutils::array::array<int> x(n);
   x.fill(1);
@@ -136,7 +153,7 @@ void map_test() {
   for (int i = 0; i < 10; i++) {
     printf("map_result[%d] = %d\n", i * n / 10, map_result[i * n / 10]);
   }
-}
+} 
 
 void reduce_test() {
   parutils::array::array<int> x(n);
@@ -178,26 +195,18 @@ namespace pasl {
 /*---------------------------------------------------------------------*/
 
 int main(int argc, char** argv) {
-  pbbs::launch(argc, argv, [&] {
+/*  pbbs::launch(argc, argv, [&] {
     n = pasl::util::cmdline::parse_or_default_int("n", 1000);
-/*    x = new array<std::shared_ptr<array<int>>>(n);
-    for (int i = 0; i < n; i++) {
-      new (&x->at(i)) std::shared_ptr<array<int>>(new array<int>(i + 1));
-      for (int j = 0; j < i + 1; j++) {
-        x->at(i)->at(j) = j;
-      }
-    }*/
-
 
     auto start = std::chrono::system_clock::now();
-    pasl::pctl::ex();
+//    pasl::pctl::ex();
     auto end = std::chrono::system_clock::now();
 
     //del;
 
     std::chrono::duration<float> diff = end - start;
     printf ("exectime %.3lf\n", diff.count());
-  });
+  });*/
   return 0;
 
 }
