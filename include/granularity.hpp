@@ -459,6 +459,8 @@ private:
   double wait_report = 1000 * local_ticks_per_microsecond;
 #endif
 
+  std::string name;
+
   std::atomic<bool> estimated;
   
 >>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
