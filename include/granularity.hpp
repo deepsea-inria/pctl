@@ -28,8 +28,11 @@
 
 #include "perworker.hpp"
 #include "plogging.hpp"
+<<<<<<< HEAD
 #include "pcallback.hpp"
 #include "cmdline.hpp"
+=======
+>>>>>>> Renaming logging.hpp to plogging.hpp
 
 #ifndef _PCTL_GRANULARITY_H_
 #define _PCTL_GRANULARITY_H_
