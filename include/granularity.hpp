@@ -71,13 +71,13 @@ double since(cycles_type time_start) {
 /*---------------------------------------------------------------------*/
 /* */
 
-#ifdef LOGGING
+#ifdef PLOGGING
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number;
 #endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
-#ifdef LOGGING
+#ifdef PLOGGING
   threads_number.mine()++;
 #endif
 #if defined(USE_PASL_RUNTIME)
@@ -94,7 +94,7 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
-#ifdef LOGGING
+#ifdef PLOGGING
 int threads_created() {
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
 }
@@ -250,8 +250,8 @@ private:
   }
   
   void update_shared(cost_type new_cst) {
-#ifdef LOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
+#ifdef PLOGGING
+    //    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
 #endif
     shared = new_cst;
   }
@@ -269,7 +269,7 @@ private:
       }
     }
     // store the new constant locally in any case
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE, name.c_str(), new_cst);
 #endif
     privates.mine() = new_cst;
@@ -289,7 +289,7 @@ public:
   estimator(std::string name)
   : name(name) {
     init();
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, name.c_str());
 #endif
   }
@@ -298,7 +298,7 @@ public:
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
 
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed, measured_cst);
 #endif
 
@@ -323,7 +323,7 @@ public:
     // compute the constant multiplied by the complexity
     cost_type cst = get_constant_or_pessimistic();
 
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_PREDICT, name.c_str(), complexity, cst * complexity, cst);
 #endif
 
