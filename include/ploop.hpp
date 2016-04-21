@@ -8,7 +8,8 @@
  */
 
 #include "granularity.hpp"
-
+#include <cilk/cilk.h>
+#include <cilk/cilk_api.h>
 #ifndef _PCTL_PLOOP_H_
 #define _PCTL_PLOOP_H_
 
@@ -88,11 +89,14 @@ void parallel_for(Iter lo,
                   const Comp_rng& comp_rng,
                   const Body& body,
                   const Seq_body_rng& seq_body_rng) {
-#if defined(MANUAL_CONTROL) && defined(PCTL_CILK_PLUS)
- { parallel_for (Iter i = lo; i < hi; i++) {
-    body(i);
-  }}
-#else
+#if defined(MANUAL_CONTROL) && defined(USE_CILK_PLUS_RUNTIME)
+//  if (std::is_fundamental<Iter>::value) {
+   { cilk_for (Iter i = lo; i < hi; i++) {
+      body(i);
+    }}
+    return;
+//  }
+#endif
   using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
   par::cstmt(controller_type::contr, [&] { return comp_rng(lo, hi); }, [&] {
     long n = hi - lo;
@@ -111,7 +115,6 @@ void parallel_for(Iter lo,
   }, [&] {
     seq_body_rng(lo, hi);
   });
-#endif
 }
 
 template <class Iter, class Body, class Comp_rng>

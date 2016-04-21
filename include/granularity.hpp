@@ -17,6 +17,7 @@
 #include "native.hpp"
 #elif defined(USE_CILK_PLUS_RUNTIME)
 #include <cilk/cilk.h>
+#include <cilk/cilk_api.h>
 #endif
 
 #include "perworker.hpp"
@@ -272,6 +273,7 @@ private:
   void update_shared(cost_type new_cst) {
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
+#endif
     shared = new_cst;
   }
   
