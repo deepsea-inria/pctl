@@ -12,10 +12,10 @@
 #include <string>
 #include <iostream>
 
-#if defined(PCTL_PASL)
+#if defined(USE_PASL_RUNTIME)
 #include "threaddag.hpp"
 #include "native.hpp"
-#elif defined(PCTL_CILK_PLUS)
+#elif defined(USE_CILK_PLUS_RUNTIME)
 #include <cilk/cilk.h>
 #endif
 
@@ -80,9 +80,9 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 #ifdef LOGGING
   threads_number.mine()++;
 #endif
-#if defined(PCTL_PASL)
+#if defined(USE_PASL_RUNTIME)
   pasl::sched::native::fork2(f1, f2);
-#elif defined(PCTL_CILK_PLUS)
+#elif defined(USE_CILK_PLUS_RUNTIME)
   cilk_spawn f1();
   f2();
   cilk_sync;
