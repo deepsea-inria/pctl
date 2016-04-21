@@ -20,7 +20,7 @@
 #endif
 
 #include "perworker.hpp"
-#include "logging.hpp"
+#include "plogging.hpp"
 
 #ifndef _PCTL_GRANULARITY_H_
 #define _PCTL_GRANULARITY_H_
@@ -71,13 +71,13 @@ double since(cycles_type time_start) {
 /*---------------------------------------------------------------------*/
 /* */
 
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+#if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
 #endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+#if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
   threads_number.mine()++;
 #endif
 #if defined(USE_PASL_RUNTIME)
@@ -94,7 +94,7 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
-#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
+#if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
 int threads_created() {
   int value = threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
@@ -270,7 +270,7 @@ private:
   }
 
   void update_shared(cost_type new_cst) {
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
 #endif
     shared = new_cst;
@@ -289,7 +289,7 @@ private:
       }
     }
     // store the new constant locally in any case
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE, name.c_str(), new_cst);
 #endif
     privates.mine() = new_cst;
@@ -301,7 +301,7 @@ private:
   void init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
-#ifdef HOMEST
+#ifdef HONEST
     to_be_estimated.init(false);
 #endif
     estimated = false;
@@ -320,7 +320,7 @@ public:
   estimator(std::string name)
   : name(name) {
     init();
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, name.c_str());
 #endif
   }
@@ -340,116 +340,15 @@ public:
 #endif
 
   bool is_undefined() {
-<<<<<<< HEAD
-    return estimated.load();
-  }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-  }
-<<<<<<< HEAD
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-
-  bool set_to_be_estimated() {
-    to_be_estimated.mine() = true;
-  }
-
-  bool is_to_be_estimated() {
-    return to_be_estimated.mine();
-  }
-
-  bool is_undefined() {
-    return estimated.load();
-=======
     return !estimated.load();
->>>>>>> suddenly unknown mode works
   }
-<<<<<<< HEAD
->>>>>>> merge
-  
-=======
 
-<<<<<<< HEAD
->>>>>>> nested loops works
-=======
 #ifdef ESTIMATOR_LOGGING
   long number_of_reports() {
     return reports_number.reduce([&] (long a, long b) { return a + b; }, 0);
   }
 #endif
 
->>>>>>> log number of reports to estimators
   void report(complexity_type complexity, cost_type elapsed) {
 #ifdef TIMING
     cycles_type now_t = now();
@@ -461,27 +360,15 @@ public:
     
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 #ifdef ESTIMATOR_LOGGING
     reports_number.mine()++;
 #endif
 
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #if defined(OPTIMISTIC) || defined(HONEST)
     if (!estimated.exchange(true)) {
 #else
@@ -510,7 +397,7 @@ public:
     // compute the constant multiplied by the complexity
     cost_type cst = get_constant_or_pessimistic();
 
-#ifdef LOGGING
+#ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_PREDICT, name.c_str(), complexity, cst * complexity, cst);
 #endif
 
@@ -529,7 +416,7 @@ estimator* estimators[10];
 void estimator::init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
-#ifdef HOMEST
+#ifdef HONEST
     to_be_estimated.init(false);
 #endif
     estimated = false;
@@ -717,17 +604,6 @@ void cstmt(control_by_prediction& contr,
 #ifdef OPTIMISTIC
   if (estimator.is_undefined()) {
     c = Unknown;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-  } else {
-#elif HONEST
-  if (estimator.is_undefined() || nested_unknown.mine() > 0) {
-    c = Unknown;
-<<<<<<< HEAD
-  } else {
-=======
   } else {
 #elif HONEST
   if (estimator.is_undefined()) {
@@ -735,10 +611,6 @@ void cstmt(control_by_prediction& contr,
   } else if (nested_unknown.mine() > 0) {
     c = Sequential;
   } else {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
-=======
-  } else {
->>>>>>> bootstrapping techniques: OPTIMISTIC and HONEST
 #endif
     if (m == complexity::tiny) {
       c = Sequential;
@@ -833,33 +705,14 @@ std::string type_name() {
   return type_name<First>() + " " + type_name<Second, Types...>();
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 template <const char* method_name, int id, class ... Types>
-=======
-template <int id, class ... Types>
->>>>>>> special controller for any function
-=======
-template <const char* method_name, int id, class ... Types>
->>>>>>> controller template fix
 class controller_holder {
 public:
   static control_by_prediction controller;
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 template <const char* method_name, int id, class ... Types>
 control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
-
-=======
-template <int id, class ... Types>
-control_by_prediction controller_holder<id, Types ...>::controller(std::string("controller_holder ") + std::to_string(id) + " " + type_name<Types ...>());
->>>>>>> special controller for any function
-=======
-template <const char* method_name, int id, class ... Types>
-control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
->>>>>>> controller template fix
 
 } // end namespace
 } // end namespace
