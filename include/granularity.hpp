@@ -71,7 +71,6 @@ double since(cycles_type time_start) {
 /*---------------------------------------------------------------------*/
 /* */
 
-<<<<<<< HEAD
 #if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
 #endif
@@ -365,7 +364,6 @@ public:
     reports_number.mine()++;
 #endif
 
-<<<<<<< HEAD
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
