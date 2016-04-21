@@ -16,7 +16,7 @@
 #endif
 
 #include "perworker.hpp"
-#include "logging.hpp"
+#include "plogging.hpp"
 
 #ifndef _PCTL_GRANULARITY_H_
 #define _PCTL_GRANULARITY_H_
