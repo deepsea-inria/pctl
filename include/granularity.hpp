@@ -77,7 +77,6 @@ pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_numb
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
-<<<<<<< HEAD
 #if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
   threads_number.mine()++;
 #endif
@@ -273,7 +272,6 @@ private:
   void update_shared(cost_type new_cst) {
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
-#endif
     shared = new_cst;
   }
   
@@ -362,6 +360,7 @@ public:
     double elapsed_time = elapsed / local_ticks_per_microsecond;
     cost_type measured_cst = elapsed_time / complexity;
 
+<<<<<<< HEAD
 #ifdef ESTIMATOR_LOGGING
     reports_number.mine()++;
 #endif
