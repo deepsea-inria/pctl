@@ -88,6 +88,11 @@ void parallel_for(Iter lo,
                   const Comp_rng& comp_rng,
                   const Body& body,
                   const Seq_body_rng& seq_body_rng) {
+#if defined(MANUAL_CONTROL) && defined(PCTL_CILK_PLUS)
+ { parallel_for (Iter i = lo; i < hi; i++) {
+    body(i);
+  }}
+#else
   using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
   par::cstmt(controller_type::contr, [&] { return comp_rng(lo, hi); }, [&] {
     long n = hi - lo;
@@ -106,6 +111,7 @@ void parallel_for(Iter lo,
   }, [&] {
     seq_body_rng(lo, hi);
   });
+#endif
 }
 
 template <class Iter, class Body, class Comp_rng>
