@@ -272,6 +272,7 @@ private:
   void update_shared(cost_type new_cst) {
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
+    //    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
 #endif
     shared = new_cst;
   }
@@ -363,6 +364,10 @@ public:
 
 #ifdef ESTIMATOR_LOGGING
     reports_number.mine()++;
+#endif
+
+#ifdef PLOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed, measured_cst);
 #endif
 
 #ifdef PLOGGING
