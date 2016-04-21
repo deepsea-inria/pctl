@@ -72,7 +72,7 @@ double since(cycles_type time_start) {
 /* */
 
 #if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
-pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number;
+pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
 #endif
   
 template <class Body_fct1, class Body_fct2>
@@ -96,6 +96,7 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
   
 #if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
 int threads_created() {
+  int value = threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
 }
 #endif
@@ -698,6 +699,10 @@ void cstmt(control_by_prediction& contr,
            const Complexity_measure_fct& complexity_measure_fct,
            const Par_body_fct& par_body_fct,
            const Seq_body_fct& seq_body_fct) {
+#ifdef MANUAL_CONTROL
+  par_body_fct();
+  return;
+#endif
 #ifdef PCTL_SEQUENTIAL_BASELINE
   seq_body_fct();
   return;
@@ -795,7 +800,7 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
   f2();
   return;
 #endif
-#ifdef PCTL_PARALLEL_ELISION
+#if defined(PCTL_PARALLEL_ELISION) || defined(MANUAL_CONTROL)
   primitive_fork2(f1, f2);
   return;
 #endif
