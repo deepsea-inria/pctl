@@ -47,6 +47,8 @@ static inline bool is_backward_scan(scan_type st) {
 namespace level4 {
 
 namespace {
+
+#define DATAPAR_THRESHOLD 2000
   
 template <
   class Input,
@@ -65,6 +67,12 @@ void reduce_rec(Input& in,
                 const Convert_reduce& convert_reduce,
                 const Seq_convert_reduce& seq_convert_reduce,
                 Granularity_controller& contr) {
+#ifdef MANUAL_CONTROL
+  if (in.size() < DATAPAR_THRESHOLD) {
+    seq_convert_reduce(in, dst);
+    return;
+  }
+#endif
   par::cstmt(contr, [&] { return convert_reduce_comp(in); }, [&] {
     if (! in.can_split()) {
       convert_reduce(in, dst);
@@ -284,6 +292,12 @@ void scan_rec(const parray<Result>& ins,
               const Result& id,
               const Merge_comp& merge_comp,
               scan_type st) {
+#ifdef MANUAL_CONTROL
+  if (ins.size() < DATAPAR_THRESHOLD) {
+    scan_seq(ins, outs_lo, out, id, st);
+    return;
+  }
+#endif
   using controller_type = scan_rec_contr<Result, Output, Merge_comp>;
   const long k = Scan_branching_factor;
   long n = ins.size();

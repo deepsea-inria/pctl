@@ -26,6 +26,8 @@ namespace pctl {
 /***********************************************************************/
   
 namespace {
+
+#define WEIGHTS_THRESHOLD 2000
   
 template<class = void>
 struct partial_sums_contr {
@@ -50,6 +52,12 @@ static inline parray<long> rec(const parray<long>& xs) {
   long n = xs.size();
   long m = 1 + ((n - 1) / k);
   parray<long> rs(n);
+#ifdef MANUAL_CONTROL
+  if (n < WEIGHTS_THRESHOLD) {
+    seq(xs.cbegin(), xs.cend(), 0, rs.begin());
+    return rs;
+  }
+#endif
   par::cstmt(partial_sums_contr<>::contr, [&] { return n; }, [&] {
     if (n <= k) {
       seq(xs.cbegin(), xs.cend(), 0, rs.begin());
@@ -103,6 +111,13 @@ parray<long> weights(long n, const Weight& weight) {
   long m = 1 + ((n - 1) / k);
   long tot;
   parray<long> rs(n + 1);
+#ifdef MANUAL_CONTROL
+  if (n < WEIGHTS_THRESHOLD) {
+    tot = weights_seq(weight, 0, n, 0, rs.begin());
+    rs[n] = tot;
+    return rs;
+  }
+#endif
   par::cstmt(weights_contr<>::weights, [&] { return n; }, [&] {
     if (n <= k) {
       tot = weights_seq(weight, 0, n, 0, rs.begin());
