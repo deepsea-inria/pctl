@@ -140,6 +140,16 @@ void parallel_for(Iter lo, Iter hi, const Body& body) {
   range::parallel_for(lo, hi, comp_rng, body);
 }
   
+template <class Iter, class Body>
+void blocked_for(Iter l, Iter r, int bsize, const Body& body) {
+  int n = ((int)(r - l) + bsize - 1) / bsize;	
+  parallel_for(0, n, [&] (int b) {
+    Iter ll = l + b * bsize;
+    Iter rr = std::min(l + (b + 1) * bsize, r);
+    body(ll, rr);
+  });
+}
+
 /***********************************************************************/
 
 } // end namespace

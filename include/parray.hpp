@@ -7,6 +7,7 @@
  *
  */
 
+#include <chrono>
 #include <cmath>
 #include <functional>
 
@@ -22,6 +23,8 @@ namespace pctl {
 
 /*---------------------------------------------------------------------*/
 /* Parallel array */
+
+#define PARRAY_THRESHOLD 2000
 
 template <class Item, class Alloc = std::allocator<Item>>
 class parray {
@@ -90,25 +93,21 @@ public:
     fill(sz, val);
   }
   
-  parray(long sz, const std::function<value_type(long)>& body)
+  template <class Body>
+  parray(long sz, const Body& body)
   : sz(0) {
     tabulate(sz, body);
   }
   
+  template <class Body_cmp, class Body>
   parray(long sz,
-         const std::function<long(long)>& body_comp,
-         const std::function<value_type(long)>& body)
+         const Body_cmp& body_comp,
+         const Body& body,
+         bool range)
   : sz(0) {
     assert(false);
   }
-  
-  parray(long sz,
-         const std::function<long(long,long)>& body_comp_rng,
-         const std::function<value_type(long)>& body)
-  : sz(0) {
-    assert(false);
-  }
-  
+   
   parray(std::initializer_list<value_type> xs) {
     alloc(xs.size());
     long i = 0;
@@ -193,17 +192,27 @@ public:
   template <class Body>
   void tabulate(long n, const Body& body) {
     realloc(n);
+#ifdef MANUAL_CONTROL
+    blocked_for(0L, n, PARRAY_THRESHOLD, [&] (long l, long r) {
+      for (long j = l; j < r; j++) { ptr[j] = body(j); }
+    });
+#else
     parallel_for(0l, n, [&] (long i) {
       ptr[i] = body(i);
     });
+#endif
   }
   
   template <class Body, class Body_comp_rng>
   void tabulate(long n, const Body_comp_rng& body_comp_rng, const Body& body) {
+#ifdef MANUAL_CONTROL
+    tabulate(n, body);
+#else
     realloc(n);
     parallel_for(0l, n, body_comp_rng, [&] (long i) {
       ptr[i] = body(i);
     });
+#endif
   }
   
   iterator begin() const {
@@ -513,30 +522,24 @@ public:
     compute_weight();
   }
   
+  template <class Body>
   parray(const Weight& weight,
-         long sz, const std::function<value_type(long)>& body)
+         long sz, const Body& body)
   : weight(weight), items(sz, body) {
     compute_weight();
   }
   
+  template <class Body_cmp, class Body>
   parray(const Weight& weight,
          long sz,
-         const std::function<long(long)>& body_comp,
-         const std::function<value_type(long)>& body)
+         const Body_cmp& body_comp,
+         const Body& body,
+         bool range)
   : weight(weight), items(sz, body_comp, body) {
     assert(false);
     compute_weight();
   }
-  
-  parray(const Weight& weight,
-         long sz,
-         const std::function<long(long,long)>& body_comp_rng,
-         const std::function<value_type(long)>& body)
-  : weight(weight), items(sz, body_comp_rng, body) {
-    assert(false);
-    compute_weight();
-  }
-  
+
   parray(const Weight& weight,
          std::initializer_list<value_type> xs)
   : weight(weight), items(xs) {

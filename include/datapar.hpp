@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <memory>
 #include <utility>
+#include <chrono>
 #ifndef TARGET_MAC_OS
 #include <malloc.h>
 #endif
@@ -48,7 +49,7 @@ namespace level4 {
 
 namespace {
 
-#define DATAPAR_THRESHOLD 2000
+#define DATAPAR_THRESHOLD 2048
   
 template <
   class Input,
@@ -357,6 +358,12 @@ void scan(Input& in,
           const Convert_scan& convert_scan,
           const Seq_convert_scan& seq_convert_scan,
           scan_type st) {
+#ifdef MANUAL_CONTROL
+  if (in.size() < DATAPAR_THRESHOLD) {
+    seq_convert_scan(id, in, outs_lo);
+    return;
+  }
+#endif
   using controller_type = scan_contr<Input, Output, Result, Output_iter,
                                      Convert_reduce_comp, Convert_reduce,
                                      Convert_scan, Seq_convert_scan>;
@@ -1169,18 +1176,89 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
   auto lift = [&] (reference_of<Flags_iter> x) {
     return (long)x;
   };
-  parray<long> offsets = level1::scan(flags_lo, flags_lo+n, 0L, combine, lift, forward_exclusive_scan);
-  auto lift_idx = [&] (long, reference_of<Flags_iter> b) {
-    return lift(b);
-  };
-  long m = level1::total_from_exclusive_scani(flags_lo, flags_lo+n, offsets.begin(), 0L, combine, lift_idx);
-  auto dst_lo = out(m);
-  parallel_for(0L, n, [&] (long i) {
+/*  long total = 0;
+  for (long i = 0; i < n; i++) {
+    total += flags_lo[i];
+  }
+  auto dst = out(total);
+  long p = 0;
+  for (long i = 0; i < n; i++) {
     if (flags_lo[i]) {
-      long offset = offsets[i];
-      *(dst_lo+offset) = f(i, *(lo+i));
+      dst[p++] = lo[i];
+    }
+  }
+  return total;*/
+#ifdef TIME_MEASURE_D
+      auto start = std::chrono::system_clock::now();
+#endif
+  long len = (n + DATAPAR_THRESHOLD - 1) / DATAPAR_THRESHOLD;
+
+/*  int* sz = (int*) malloc(len * sizeof(int));
+  for (int i = 0; i < len; ++i) {
+    int l = i * DATAPAR_THRESHOLD;
+    int r = std::min(l + DATAPAR_THRESHOLD, (int)n);
+    int total = 0;
+    for (int j = l; j < r; ++j) {
+      total += flags_lo[j];
+    }
+    sz[i] = total;
+  }
+#ifdef TIME_MEASURE_D
+      auto endsz = std::chrono::system_clock::now();
+      std::chrono::duration<float> diffsz = endsz - start;
+      printf ("exectime sz %.3lf\n", diffsz.count());
+#endif*/
+
+  auto body = [&] (long i) {
+    long l = i * DATAPAR_THRESHOLD;
+    long r = std::min((i + 1) * DATAPAR_THRESHOLD, n);
+    return level1::reduce(flags_lo + l, flags_lo + r, 0L, combine, lift);
+  };
+#ifdef MANUAL_CONTROL
+  parray<long> sizes(len);
+  parallel_for(0L, len, [&] (int i) {
+    sizes[i] = body(i);
+  });
+#else
+  parray<long> sizes(len, body);
+#endif
+#ifdef TIME_MEASURE_D
+      auto end = std::chrono::system_clock::now();
+      std::chrono::duration<float> diff = end - start;
+      printf ("exectime sums %.3lf\n", diff.count());
+
+      start = std::chrono::system_clock::now();
+#endif
+  parray<long> offsets = scan(sizes.begin(), sizes.end(), 0L, combine, forward_exclusive_scan);
+  auto lift_idx = [&] (long, long b) {
+    return b;
+  };
+#ifdef TIME_MEASURE_D
+      end = std::chrono::system_clock::now();
+      diff = end - start;
+      printf ("exectime scan %.3lf\n", diff.count());
+#endif
+
+  long m = level1::total_from_exclusive_scani(sizes.begin(), sizes.end(), offsets.begin(), 0L, combine, lift_idx);
+  auto dst_lo = out(m);
+
+#ifdef TIME_MEASURE_D
+      start = std::chrono::system_clock::now();
+#endif
+  blocked_for(0L, n, DATAPAR_THRESHOLD, [&] (long l, long r) {
+    long b = l / DATAPAR_THRESHOLD;
+    long offset = offsets[b];
+    for (int i = l; i < r; i++) {
+      if (flags_lo[i]) {
+        *(dst_lo + (offset++)) = f(i, *(lo + i));
+      }
     }
   });
+#ifdef TIME_MEASURE_D
+      end = std::chrono::system_clock::now();
+      diff = end - start;
+      printf ("exectime for %.3lf\n", diff.count());
+#endif
   return m;
 }
 
@@ -1215,17 +1293,34 @@ parray<long> pack_index(Flags_iter lo, Flags_iter hi) {
 template <class Iter, class Pred_idx>
 parray<value_type_of<Iter>> filteri(Iter lo, Iter hi, const Pred_idx& pred_idx) {
   long n = hi - lo;
+#ifdef TIME_MEASURE_D
+      auto start = std::chrono::system_clock::now();
+#endif
   parray<bool> flags(n, [&] (long i) {
     return pred_idx(i, *(lo+i));
   });
+#ifdef TIME_MEASURE_D
+      auto end = std::chrono::system_clock::now();
+      std::chrono::duration<float> diff = end - start;
+      printf ("exectime initialize filteri %.3lf\n", diff.count());
+#endif
+
   value_type_of<Iter> dummy;
   parray<value_type_of<Iter>> dst;
+#ifdef TIME_MEASURE_D
+      start = std::chrono::system_clock::now();
+#endif
   __priv::pack(flags.cbegin(), lo, hi, dummy, [&] (long m) {
     dst.resize(m);
     return dst.begin();
   }, [&] (long, reference_of<Iter> x) {
     return x;
   });
+#ifdef TIME_MEASURE_D
+      end = std::chrono::system_clock::now();
+      diff = end - start;
+      printf ("exectime pack filteri %.3lf\n", diff.count());
+#endif
   return dst;
 }
   

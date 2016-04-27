@@ -106,15 +106,17 @@ public:
     fill(n, val);
   }
   
-  pchunkedseq(long sz, const std::function<value_type(long)>& body) {
+  template <class Body>
+  pchunkedseq(long sz, const Body& body) {
     chunked::tabulate_dst(sz, seq, [&] (long i, reference dst) {
       dst = body(i);
     });
   }
   
+  template <class Body_cmp, class Body>
   pchunkedseq(long sz,
-              const std::function<long(long)>& body_comp,
-              const std::function<value_type(long)>& body) {
+              const Body_cmp& body_comp,
+              const Body& body) {
     chunked::tabulate_dst(sz, seq, body_comp, [&] (long i, reference dst) {
       dst = body(i);
     });
