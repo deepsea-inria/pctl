@@ -41,7 +41,7 @@ static inline double hashd(int i) {
   return ((double) hashi(i)/((double) HASH_MAX_INT));}
 
 template <class T> T hash(int i) {
-  if (typeid(T) == typeid(int)) {
+  if (typeid(T) == typeid(int) || typeid(T) == typeid(long) || typeid(T) == typeid(size_t)) {
     return hashi(i);
   } else if (typeid(T) == typeid(unsigned int)) {
     return hashu(i);
@@ -78,7 +78,7 @@ pchunkedseq<Item> gen_pchunkedseq(long n, const Generator& g) {
 template <class Integ>
 Integ in_range(Integ val, Integ lo, Integ hi) {
   Integ n = hi - lo;
-  Integ val2 = val % n;
+  Integ val2 = (val % n + n) % n;
   return val2 + lo;
 }
 
