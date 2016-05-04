@@ -69,7 +69,7 @@ void reduce_rec(Input& in,
                 const Seq_convert_reduce& seq_convert_reduce,
                 Granularity_controller& contr) {
 #ifdef MANUAL_CONTROL
-  if (in.size() < DATAPAR_THRESHOLD) {
+  if (convert_reduce_comp(in) < DATAPAR_THRESHOLD) {
     seq_convert_reduce(in, dst);
     return;
   }
@@ -1132,9 +1132,9 @@ long max_index(Iter lo, Iter hi, const Item& id, const Comp& comp, const Lift& l
     long i = _lo - lo;
     result_type res(0, id);
     for (Iter it = _lo; it != _hi; it++, i++) {
-      const Item& x = *it;
+      auto x = lift(i, *it);
       if (comp(x, res.second)) {
-        res = result_type(i, lift(i, x));
+        res = result_type(i, x);
       }
     }
     return res;

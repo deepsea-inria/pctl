@@ -215,6 +215,24 @@ long filter(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) 
   };
   return filteri(lo, hi, dst_lo, pred_idx);
 }
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+long filter_seq(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) {
+  long total = 0;
+  while (lo < hi) {
+    if (pred(*lo)) {
+      *dst_lo = *lo;
+      dst_lo++;
+      total++;
+    }
+    lo++;
+  }
+  return total;
+}
   
 } // end namespace
   
