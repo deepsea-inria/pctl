@@ -6,12 +6,12 @@ Introduction
 ============
 
 The parallel-container template library (pctl) is a C++ library that
-is currently under development by the [Deepsea
+is currently under development by members of the [Deepsea
 Project](http://deepsea.inria.fr). The goal of the pctl is to provide
 a rich set of parallel data structures, along with efficient
 data-parallel algorithms, such as merging, sorting, reduction, etc. We
-are designing the pctl implementation to target shared-memory,
-parallel (i.e., multicore) platforms.
+are designing pctl to target shared-memory, parallel (i.e., multicore)
+platforms.
 
 Our design borrows to a large extent the conventions used by the
 [Standard Template
@@ -28,24 +28,74 @@ Plus](https://software.intel.com/en-us/intel-cilk-plus) and
 that is helpful for taming overheads that relate to parallel
 execution.
 
+The sources of the pctl are made available by a [github
+repository](https://github.com/deepsea-inria/pctl).
+
 Preliminaries
 =============
 
-Obtaining the source code
--------------------------
-
-Building
----------
-
 We have implemented pctl to be compatible with the C++11
-standard. Earlier version of the C++ standard may be incompatible with
+standard. Earlier versions of the C++ standard may be incompatible.
+
+Downloading and building a pctl program
+---------------------------------------
+
+The pctl library itself consists of several C++ header files. As such,
+to use the pctl in a C++ project, one must first obtain the source
+code and then, in order to build with pctl support, pass to the
+compiler the paths to the required header files. First, let us begin
+by downloading the loader script
+[get.sh](http://deepsea.inria.fr/pctl/get.sh). Now, the same
+directory, run the script, specifying the folder in which to store
+pctl and its dependencies.
+
+~~~~~~~~~~~~~~~~~~~~~
+$ get.sh /home/foo/pctl-install/
+~~~~~~~~~~~~~~~~~~~~~
+
+The above command should clone the git repository of the pctl along
+with the repositories of its two dependencies, namely
+[`cmdline`](https://github.com/deepsea-inria/cmdline) and
+[`chunkedseq`](https://github.com/deepsea-inria/chunkedseq). In the
+example above, our script should have created directories `pctl`,
+`cmdline`, and `chunkedseq` in the path named
+`/home/foo/pctl-install/`. Any target path name will do.
+
+Now, let us turn to building a small program, shown below, that
+specifies an array and computes the sum of the elements.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+#include "datapar.hpp"
+
+using namespace pasl::pctl;
+
+int main() {
+  parray<int> xs = { 43, 3222, 11232, 30, 9, -3 };
+  std::cout << "sum(xs) = " << sum(xs.begin(), xs.end()) << std::endl;
+  return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Supposing that we put this program in a file named `sum.cpp`, we can
+use the following command sequence to build and run an executable.
+
+~~~~~~~~~~~~~~~~~~~~~
+$ g++ -std=c++11 `print-include-directives.sh /home/foo/pctl-install/`
+sum.cpp -o sum.exe
+$ sum.exe
+sum(xs) = 14533
+~~~~~~~~~~~~~~~~~~~~~
+
+The above program is ***not*** compiled with support for parallel
+execution. Consequently, all calls to pctl functions are going to be
+performed in a sequential fashion. If we want parallel speedup, we
+need to pick the parallel library or language that we wish to target
+and use the appropriate configuration.
+
+Parallelism in pctl can be realized by any library or language
+extension that brings fork-join parallelism to C++. The following
+table summarizes which of these systems are currently supported by
 pctl.
-
-### Platform support
-
-Parallelism in PCTL can be realized by any runtime system that brings
-fork-join parallelism to C++. The following table summarizes which of
-these systems are currently supported by PCTL.
 
 +-----------+---------------------------------+------------------------+
 |           |Compiler flag                    | Description            |
@@ -53,48 +103,235 @@ these systems are currently supported by PCTL.
 +-----------+---------------------------------+------------------------+
 | Sequential| `USE_SEQUENTIAL_ELISION_RUNTIME`| Sequentializes all     |
 |elision    |                                 |opportunities for       |
-|           |                                 |parallelism.            |
+|(default)  |                                 |parallelism.            |
 |           |                                 |                        |
 +-----------+---------------------------------+------------------------+
 | Cilk Plus | `USE_CILK_PLUS_RUNTIME`         | Uses the Cilk Plus     |
-|           |                                 |system to realize       |
-|           |                                 |parallelism.            |
+|           |                                 |language extension to   |
+|           |                                 |realize parallelism.    |
 +-----------+---------------------------------+------------------------+
 | PASL      | `USE_PASL_RUNTIME`              | Uses the PASL system to|
 |           |                                 |realize parallelism.    |
 +-----------+---------------------------------+------------------------+
 
-Table: The runtime systems that are currently supported by PCTL.
+Table: Libraries and language extensions that are currently supported by pctl.
 
-### Software dependencies
-
-- [`cmdline`](https://github.com/deepsea-inria/cmdline)
-- [`chunkedseq`](https://github.com/deepsea-inria/chunkedseq)
-
-### Installation script
-
-First, get the script
-[get.sh](https://github.com/deepsea-inria/pbbs-pctl/blob/master/script/get.sh).
-
-Then, run the script, passing the path to which you want to store the
-`pctl` folder and its dependencies.
+To build the example shown above, but with support for Cilk Plus,
+first make sure that you are using `gcc >= 5.0`. If so, the command
+shown below will build a parallel-ready binary.
 
 ~~~~~~~~~~~~~~~~~~~~~
-$ get.sh <path to target directory here>
+$ g++ -std=c++11 `print-include-directives.sh /home/foo/pctl-install/`
+-fcilkplus -lcilkrts -DUSE_CILK_PLUS_RUNTIME sum.cpp -o sum.exe
 ...
 ~~~~~~~~~~~~~~~~~~~~~
 
-Cost model
-----------
+***TODO*** document pasl support
 
-Define *work* and *span* here.
+Parallel substrate
+------------------
 
-Granularity control
--------------------
+### Binary fork join
 
-Define *cost function* here.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pasl {
+namespace pctl {
 
-Introduce `fork2` and `cstmt` here.
+template <class First_function, class Second_function>
+void fork2(First_function f1, Second_function f2);
+
+} }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the pctl, an opportunity for parallelism can be expressed by an
+application of the binary fork-join primitive. The interface of this
+primitive is shown above. The call `fork2(f1, f2)` performs the calls
+`f1()` and `f2()`, allowing both calls to run in parallel. To see how
+we might use this primitive, consider the program below.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+#include "datapar.hpp"
+
+using namespace pasl::pctl;
+
+template <class Iterator>
+int my_sum(Iterator lo, Iterator hi) {
+  int result;
+  int n = hi - lo;
+  if (n == 0) 
+    result = 0;
+  } else if (n == 1) {
+    result = *lo;
+  } else {
+    Iterator mid = lo + (n / 2);
+    int result1, result2;
+    fork2([&] {
+      result1 = sum(lo, mid);
+    }, {
+      result2 = sum(mid, hi);
+    });
+    result = result1 + result2;
+  }
+  return result;
+}
+
+int main() {
+  parray<int> xs = { 43, 3222, 11232, 30, 9, -3 };
+  std::cout << "my_sum(xs) = " << my_sum(xs.begin(), xs.end()) << std::endl;
+  return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this program, we have a function named `my_sum` that returns the
+sum of a range of items in some container, realizing parallelism via
+the call to the pctl fork-join primitive. Unfortunately, as we will
+see, this program is naive because of the very fine-grain fashion in
+which parallelism is going to be realized by the system. The good news
+is that, with a little extra annotation in the source code, one can
+easily bypass this problem an yield a fast program.
+
+Although parallel systems, such as Cilk Plus and PASL, are carefully
+engineered to control overheads, the reality is that, in general,
+these overheads may still be large enough to seriously harm
+performance. This problem is known as the problem of ***granularity
+control***. One way to characterize the granularity-control problem is
+as follows. On the one hand, if the program tries to exploit too many
+opportunities for parallelism, then the program will be slow due to
+thread-management overheads. On the other, if the program realizes too
+little parallelism, the program will be slow because of underutilized
+processors. For this reason, programmers often resort to manual
+granularity control, whereby a threshold is used to prune
+parallelism. In the `my_sum` function shown above, for example, one
+may choose to stop recursion below some specified threshold.
+
+Unfortunately, such a manual approach has some severe
+problems. Although the problems are well understood, there is
+currently no silver bullet to solve the problem in all cases. However,
+there is one approach named ***oracle-based granulariy control*** that
+can do mostly automatic granularity control. The original idea is
+described in some recent [research
+publications](http://deepsea.inria.fr/oracular/). The pctl implements
+a particular incarnation of oracle-guided scheduling.
+
+### Automatic granularity control
+
+In the pctl, oracle-guided scheduling is implemented by a mechanism
+called the ***controlled statement***. A controlled statement is (1) a
+block of code, expressed as a lambda function, that can perform some
+specified parallel computation and (2) a ***complexity function***
+that specifies the asymptotic complexity of the block of code.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pasl {
+namespace pctl {
+
+// (1)
+template <class Complexity_function, class Body>
+void cstmt(Complexity_function cf, Body b);
+
+// (2)
+template <class Complexity_function, class Parallel_body, class Sequential_body>
+void cstmt(Complexity_function cf, Parallel_body pb, Sequential_body sb);
+
+} }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+There are two variants of the controlled statement. Let us focus on
+the first one for now because the first one is simpler. The call
+`cstmt(cf, b)` performs the call `b()`, using the result of `cf()` to
+help determine whether to realize opportunities for parallelism or to
+execute the call `b()` serially. We show below how to extend our
+`my_sum` function to use oracle-guided granularity control.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+#include "datapar.hpp"
+
+using namespace pasl::pctl;
+
+template <class Iterator>
+int my_sum(Iterator lo, Iterator hi) {
+  int result;
+  int n = hi - lo;
+  cstmt([&] { return n; }, [&] {
+    if (n == 0) 
+      result = 0;
+    } else if (n == 1) {
+      result = *lo;
+    } else {
+      Iterator mid = lo + (n / 2);
+      int result1, result2;
+      fork2([&] {
+        result1 = sum(lo, mid);
+      }, {
+        result2 = sum(mid, hi);
+      });
+      result = result1 + result2;
+    }
+  });
+  return result;
+}
+
+int main() {
+  parray<int> xs = { 43, 3222, 11232, 30, 9, -3 };
+  std::cout << "my_sum(xs) = " << my_sum(xs.begin(), xs.end()) << std::endl;
+  return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now, with the above code, we have a much more efficient program than
+we had before because we are using automatic granularity control to
+deal with parallelism-related overheads. But we can do better in this
+case because we have a `my_sum` function for which the serial portion
+of the computation can be expressed more efficiently as a serial loop.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+template <class Iterator>
+int my_sum(Iterator lo, Iterator hi) {
+  int result;
+  int n = hi - lo;
+  cstmt([&] { return n; }, [&] { // parallel body
+    if (n == 0) 
+      result = 0;
+    } else if (n == 1) {
+      result = *lo;
+    } else {
+      Iterator mid = lo + (n / 2);
+      int result1, result2;
+      fork2([&] {
+        result1 = sum(lo, mid);
+      }, {
+        result2 = sum(mid, hi);
+      });
+      result = result1 + result2;
+    }
+  }, [&] { // serial body
+    for (; lo != hi; lo++) {
+      result += *lo;
+    }
+  });
+  return result;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For this reason, the pctl provides the second variant of the
+controlled statement. The call `cstmt(cf, pb, sb)` performs the call
+`pb()` if the system chooses to execute the given computation in a
+parallel fashion and the call `sb()` if the system chooses to
+sequentialize the call. As before, the result `cf()` of the complexity
+function is used by the system to determine whether to use parallel or
+serial execution.
+
+***TODO*** there is an inconsistency between this documentation and
+the actual c++ code. to fix, we need to introduce a function like
+`cstmt` that automatically allocates its granularity control object,
+making the identity of this object specific to the two template
+parameters of `cstmt`.
+
+***TODO*** introduce a header file named `pctl.hpp` that includes all
+   pctl headers
+
+***TODO*** consider removing the pasl namespace, making pctl a
+   top-level namespace
 
 Containers
 ==========
