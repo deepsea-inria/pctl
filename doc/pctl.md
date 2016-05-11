@@ -8,7 +8,7 @@ Introduction
 The parallel-container template library (pctl) is a C++ library that
 is currently under development by members of the [Deepsea
 Project](http://deepsea.inria.fr). The goal of the pctl is to provide
-a rich set of parallel data structures, along with efficient
+a rich collection of parallel data structures, along with efficient
 data-parallel algorithms, such as merging, sorting, reduction, etc. We
 are designing pctl to target shared-memory, parallel (i.e., multicore)
 platforms.
@@ -25,8 +25,7 @@ model, which is provided by systems, such as [Cilk
 Plus](https://software.intel.com/en-us/intel-cilk-plus) and
 [pasl](http://deepsea.inria.fr). Moreover, pctl implements a
 [granularity-control technique](http://deepsea.inria.fr/oracular/)
-that is helpful for taming overheads that relate to parallel
-execution.
+that is helpful for taming overheads that relate to parallelization.
 
 The sources of the pctl are made available by a [github
 repository](https://github.com/deepsea-inria/pctl).
@@ -50,11 +49,12 @@ directory, run the script, specifying the folder in which to store
 pctl and its dependencies.
 
 ~~~~~~~~~~~~~~~~~~~~~
+$ wget http://deepsea.inria.fr/pctl/get.sh
 $ get.sh /home/foo/pctl-install/
 ~~~~~~~~~~~~~~~~~~~~~
 
 The above command should clone the git repository of the pctl along
-with the repositories of its two dependencies, namely
+with the repositories of its two package dependencies, namely
 [`cmdline`](https://github.com/deepsea-inria/cmdline) and
 [`chunkedseq`](https://github.com/deepsea-inria/chunkedseq). In the
 example above, our script should have created directories `pctl`,
@@ -67,11 +67,10 @@ specifies an array and computes the sum of the elements.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 #include "datapar.hpp"
 
-using namespace pasl::pctl;
-
 int main() {
   parray<int> xs = { 43, 3222, 11232, 30, 9, -3 };
-  std::cout << "sum(xs) = " << sum(xs.begin(), xs.end()) << std::endl;
+  int r = pasl::pctl::sum(xs.begin(), xs.end());
+  std::cout << "sum(xs) = " << r << std::endl;
   return 0;
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -117,8 +116,10 @@ pctl.
 Table: Libraries and language extensions that are currently supported by pctl.
 
 To build the example shown above, but with support for Cilk Plus,
-first make sure that you are using `gcc >= 5.0`. If so, the command
-shown below will build a parallel-ready binary.
+first make sure that you are using `gcc >= 5.0` or a recent version of
+[clang/llvm that supports Cilk Plus
+extensions](https://cilkplus.github.io/). If so, the command shown
+below will build a parallel-ready binary.
 
 ~~~~~~~~~~~~~~~~~~~~~
 $ g++ -std=c++11 `print-include-directives.sh /home/foo/pctl-install/`
@@ -128,8 +129,8 @@ $ g++ -std=c++11 `print-include-directives.sh /home/foo/pctl-install/`
 
 ***TODO*** document pasl support
 
-Parallel substrate
-------------------
+The substrate for expressing parallelism
+----------------------------------------
 
 ### Binary fork join
 
@@ -156,7 +157,7 @@ using namespace pasl::pctl;
 
 template <class Iterator>
 int my_sum(Iterator lo, Iterator hi) {
-  int result;
+  int result = 0;
   int n = hi - lo;
   if (n == 0) 
     result = 0;
@@ -184,11 +185,11 @@ int main() {
 
 In this program, we have a function named `my_sum` that returns the
 sum of a range of items in some container, realizing parallelism via
-the call to the pctl fork-join primitive. Unfortunately, as we will
-see, this program is naive because of the very fine-grain fashion in
-which parallelism is going to be realized by the system. The good news
-is that, with a little extra annotation in the source code, one can
-easily bypass this problem an yield a fast program.
+the call to the pctl fork-join primitive. Unfortunately, this program
+is naive because of the very fine-grain use of the binary fork-join
+primitive. The good news is that, with a little extra annotation in
+the source code, one can easily bypass this problem and obtain a fast,
+clean, and concise solution.
 
 Although parallel systems, such as Cilk Plus and PASL, are carefully
 engineered to control overheads, the reality is that, in general,
@@ -197,29 +198,34 @@ performance. This problem is known as the problem of ***granularity
 control***. One way to characterize the granularity-control problem is
 as follows. On the one hand, if the program tries to exploit too many
 opportunities for parallelism, then the program will be slow due to
-thread-management overheads. On the other, if the program realizes too
-little parallelism, the program will be slow because of underutilized
-processors. For this reason, programmers often resort to manual
-granularity control, whereby a threshold is used to prune
+overheads of the parallel primitives. On the other, if the program
+realizes too little parallelism, the program will be slow because of
+underutilized processors. For this reason, programmers often resort to
+manual granularity control, whereby a threshold is used to prune
 parallelism. In the `my_sum` function shown above, for example, one
-may choose to stop recursion below some specified threshold.
+may address the problem by stopping recursion below some specified
+threshold.
 
-Unfortunately, such a manual approach has some severe
-problems. Although the problems are well understood, there is
-currently no silver bullet to solve the problem in all cases. However,
-there is one approach named ***oracle-based granulariy control*** that
-can do mostly automatic granularity control. The original idea is
-described in some recent [research
+Unfortunately, such a manual approach has some severe problems of its
+own. In brief, manual granularity control is not portable across
+different platforms and does not compose well in situations where the
+program uses nested parallelism or higher-order functions, such as map
+and reduce. Although well understood, there is currently no silver
+bullet to solve the granularity-control problem in general. However,
+there is one approach, named ***oracle-based granulariy control***,
+that achieves mostly automatic granularity control. The original idea
+is described in some recent [research
 publications](http://deepsea.inria.fr/oracular/). The pctl implements
 a particular incarnation of oracle-guided scheduling.
 
-### Automatic granularity control
+### Mostly automatic granularity control
 
 In the pctl, oracle-guided scheduling is implemented by a mechanism
 called the ***controlled statement***. A controlled statement is (1) a
-block of code, expressed as a lambda function, that can perform some
-specified parallel computation and (2) a ***complexity function***
-that specifies the asymptotic complexity of the block of code.
+block of code, expressed as a lambda function, that, when called,
+performs some specified parallel computation and (2) a ***complexity
+function*** that specifies the asymptotic complexity of the block of
+code.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pasl {
@@ -240,17 +246,14 @@ There are two variants of the controlled statement. Let us focus on
 the first one for now because the first one is simpler. The call
 `cstmt(cf, b)` performs the call `b()`, using the result of `cf()` to
 help determine whether to realize opportunities for parallelism or to
-execute the call `b()` serially. We show below how to extend our
-`my_sum` function to use oracle-guided granularity control.
+execute the call `b()` serially. In the code shown below, we see how
+to extend our `my_sum` function to achieve granularity control by use
+of the controlled statement.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-#include "datapar.hpp"
-
-using namespace pasl::pctl;
-
 template <class Iterator>
 int my_sum(Iterator lo, Iterator hi) {
-  int result;
+  int result = 0;
   int n = hi - lo;
   cstmt([&] { return n; }, [&] {
     if (n == 0) 
@@ -270,12 +273,6 @@ int my_sum(Iterator lo, Iterator hi) {
   });
   return result;
 }
-
-int main() {
-  parray<int> xs = { 43, 3222, 11232, 30, 9, -3 };
-  std::cout << "my_sum(xs) = " << my_sum(xs.begin(), xs.end()) << std::endl;
-  return 0;
-}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Now, with the above code, we have a much more efficient program than
@@ -284,12 +281,22 @@ deal with parallelism-related overheads. But we can do better in this
 case because we have a `my_sum` function for which the serial portion
 of the computation can be expressed more efficiently as a serial loop.
 
+For this reason, the pctl provides the second variant of the
+controlled statement. The call `cstmt(cf, pb, sb)` performs the call
+`pb()` if the system chooses to execute the given computation in a
+parallel fashion and the call `sb()` if the system chooses to
+sequentialize the call. As before, the result `cf()` of the complexity
+function is used by the system to determine whether to use parallel or
+serial execution. We can modify our `my_sum` example as shown below to
+use a serial body.
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 template <class Iterator>
 int my_sum(Iterator lo, Iterator hi) {
-  int result;
+  int result = 0;
   int n = hi - lo;
-  cstmt([&] { return n; }, [&] { // parallel body
+  cstmt([&] { return n; }, [&] {
+    // parallel body
     if (n == 0) 
       result = 0;
     } else if (n == 1) {
@@ -304,7 +311,8 @@ int my_sum(Iterator lo, Iterator hi) {
       });
       result = result1 + result2;
     }
-  }, [&] { // serial body
+  }, [&] {
+    // serial body
     for (; lo != hi; lo++) {
       result += *lo;
     }
@@ -312,26 +320,6 @@ int my_sum(Iterator lo, Iterator hi) {
   return result;
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For this reason, the pctl provides the second variant of the
-controlled statement. The call `cstmt(cf, pb, sb)` performs the call
-`pb()` if the system chooses to execute the given computation in a
-parallel fashion and the call `sb()` if the system chooses to
-sequentialize the call. As before, the result `cf()` of the complexity
-function is used by the system to determine whether to use parallel or
-serial execution.
-
-***TODO*** there is an inconsistency between this documentation and
-the actual c++ code. to fix, we need to introduce a function like
-`cstmt` that automatically allocates its granularity control object,
-making the identity of this object specific to the two template
-parameters of `cstmt`.
-
-***TODO*** introduce a header file named `pctl.hpp` that includes all
-   pctl headers
-
-***TODO*** consider removing the pasl namespace, making pctl a
-   top-level namespace
 
 Containers
 ==========
@@ -359,16 +347,16 @@ found
 this property means for clients of pctl is that the container
 operations that modify the container (e.g., `push` or `pop`) generally
 are not thread safe. Parallelism is achieved instead by operating in
-parallel on disjoint range of, say, the same sequence, or by splitting
-and merging sequences in a fork-join fashion.
+parallel on disjoint ranges of, say, the same sequence, or by
+splitting and merging sequences in a fork-join fashion.
 
 Sequence containers
 -------------------
 
 Class name                           | Description
--------------------------------------|---------------------------------
-[`parray`](#parray)                  | Array class
-[`pchunkedseq`](#pchunkedseq)        | Chunked-sequence class
+-------------------------------------|----------------------------------------------------
+[`parray`](#parray)                  | Contiguous array class
+[`pchunkedseq`](#pchunkedseq)        | Discontiguous, efficiently resizable sequence class
 
 Table: Sequence containers that are provided by pctl.
 
