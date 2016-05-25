@@ -1215,7 +1215,8 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
     return level1::reduce(flags_lo + l, flags_lo + r, 0L, combine, lift);
   };
 #ifdef MANUAL_CONTROL
-  parray<long> sizes(len);
+  parray<long> sizes;
+  sizes.prefix_tabulate(len, 0);
   parallel_for(0L, len, [&] (int i) {
     sizes[i] = body(i);
   });
@@ -1269,20 +1270,39 @@ parray<value_type_of<Item_iter>> pack(Item_iter lo, Item_iter hi, Flags_iter fla
   parray<value_type_of<Item_iter>> result;
   value_type_of<Item_iter> tmp;
   __priv::pack(flags_lo, lo, hi, tmp, [&] (long m) {
-    result.resize(m);
+    result.prefix_tabulate(m, 0);
     return result.begin();
   }, [&] (long, reference_of<Item_iter> x) {
     return x;
   });
   return result;
 }
+
+template <class Item_iter, class Flags_iter>
+parray<value_type_of<Item_iter>> pack_seq(Item_iter lo, Item_iter hi, Flags_iter flags_lo) {
+  long total = 0;
+  parray<value_type_of<Item_iter>> result;
+  for (long it = 0; it < hi - lo; it++) {
+    if (flags_lo[it]) {
+      total++;
+    }
+  }
+  result.prefix_tabulate(total, 0);
+  total = 0;
+  for (long it = 0; it < hi - lo; it++) {
+    if (flags_lo[it]) {
+      result[total++] = lo[it];
+    }
+  }
+  return result;
+}        
   
 template <class Flags_iter>
 parray<long> pack_index(Flags_iter lo, Flags_iter hi) {
   parray<long> result;
   long dummy;
   __priv::pack(lo, lo, hi, dummy, [&] (long m) {
-    result.resize(m);
+    result.prefix_tabulate(m, 0);
     return result.begin();
   }, [&] (long offset, reference_of<Flags_iter>) {
     return offset;
@@ -1311,7 +1331,7 @@ parray<value_type_of<Iter>> filteri(Iter lo, Iter hi, const Pred_idx& pred_idx) 
       start = std::chrono::system_clock::now();
 #endif
   __priv::pack(flags.cbegin(), lo, hi, dummy, [&] (long m) {
-    dst.resize(m);
+    dst.prefix_tabulate(m, 0);
     return dst.begin();
   }, [&] (long, reference_of<Iter> x) {
     return x;

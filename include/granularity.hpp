@@ -13,6 +13,7 @@
 #include <iostream>
 #include <execinfo.h>
 #include <stdio.h>
+#include <map>
 
 #if defined(USE_PASL_RUNTIME)
 #include "threaddag.hpp"
@@ -24,6 +25,8 @@
 
 #include "perworker.hpp"
 #include "plogging.hpp"
+#include "pcallback.hpp"
+#include "cmdline.hpp"
 
 #ifndef _PCTL_GRANULARITY_H_
 #define _PCTL_GRANULARITY_H_
@@ -100,6 +103,68 @@ static inline
 double since(cycles_type time_start) {
   return elapsed(time_start, now());
 }
+
+/* Read-write estimators constants. */
+
+typedef std::map<std::string, double> constant_map_t;
+
+// values of constants which are read from a file
+static constant_map_t preloaded_constants;
+// values of constants which are to be written to a file
+static constant_map_t recorded_constants;
+
+static void print_constant(FILE* out, std::string name, double cst) {
+  fprintf(out,         "%s %lf\n", name.c_str(), cst);
+}
+
+static void parse_constant(char* buf, double& cst, std::string line) {
+  sscanf(line.c_str(), "%s %lf", buf, &cst);
+}
+
+static std::string get_dflt_constant_path() {
+  std::string executable = deepsea::cmdline::name_of_my_executable();
+  return executable + ".cst";
+}
+
+static std::string get_path_to_constants_file_from_cmdline(std::string flag) {
+  std::string outfile;
+  if (deepsea::cmdline::parse_or_default_bool(flag, false, false))
+    return get_dflt_constant_path();
+  else
+    return deepsea::cmdline::parse_or_default_string(flag + "_in", "", false);
+}
+
+static void try_read_constants_from_file() {
+  std::string infile_path = get_path_to_constants_file_from_cmdline("read_csts");
+  if (infile_path == "")
+    return;
+  std::string cst_str;
+  std::ifstream infile;
+  infile.open (infile_path.c_str());
+  while(! infile.eof()) {
+    getline(infile, cst_str);
+    if (cst_str == "")
+      continue; // ignore trailing whitespace
+    char buf[4096];
+    double cst;
+    parse_constant(buf, cst, cst_str);
+    std::string name(buf);
+    preloaded_constants[name] = cst;
+  }
+}
+
+static void try_write_constants_to_file() {
+  std::string outfile_path = get_path_to_constants_file_from_cmdline("write_csts");
+  if (outfile_path == "")
+    return;
+  static FILE* outfile;
+  outfile = fopen(outfile_path.c_str(), "w");
+  constant_map_t::iterator it;
+  for (it = recorded_constants.begin(); it != recorded_constants.end(); it++)
+    print_constant(outfile, it->first, it->second);
+  fclose(outfile);
+}
+
 
 /*---------------------------------------------------------------------*/
 /* */
@@ -252,7 +317,7 @@ namespace {
 double cpu_frequency_ghz = 2.1;
 double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
 
-class estimator {
+class estimator : pasl::pctl::callback::client {
 private:
   
   constexpr static const double min_report_shared_factor = 2.0;
@@ -275,7 +340,7 @@ private:
 #endif
 
 #ifdef TIMING
-  double wait_report = 1000 * local_ticks_per_microsecond;
+  double wait_report = 10 * local_ticks_per_microsecond;
 #endif
 
   std::string name;
@@ -283,6 +348,9 @@ private:
   std::atomic<bool> estimated;
   
   cost_type get_constant() {
+#ifdef CONSTANTS
+    return shared;
+#endif
     cost_type cst = privates.mine();
     // if local constant is undefined, use shared cst
     if (cst == cost::undefined) {
@@ -293,6 +361,9 @@ private:
   }
   
   cost_type get_constant_or_pessimistic() {
+#ifdef CONSTANTS
+    return shared;
+#endif
     cost_type cst = get_constant();
     assert (cst != 0.);
     if (cst == cost::undefined) {
@@ -327,25 +398,13 @@ private:
 #endif
     privates.mine() = new_cst;
   }
-
-#ifdef ESTIMATOR_LOGGING
-  void init();
-#else
-  void init() {
-    shared = cost::undefined;
-    privates.init(cost::undefined);
-#ifdef HONEST
-    to_be_estimated.init(false);
-#endif
-    estimated = false;
-#ifdef TIMING
-    last_report.init(0);
-#endif
-  }
-#endif
   
 public:
   
+  void init();
+  void output();
+  void destroy();
+
   estimator() {
     init();
   }
@@ -356,6 +415,7 @@ public:
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, name.c_str());
 #endif
+    pasl::pctl::callback::register_client(this);
   }
 
   std::string get_name() {
@@ -383,6 +443,9 @@ public:
 #endif
 
   void report(complexity_type complexity, cost_type elapsed) {
+#ifdef CONSTANTS
+    return;
+#endif
 #ifdef TIMING
     cycles_type now_t = now();
     if (now_t - last_report.mine() < wait_report) {
@@ -421,6 +484,9 @@ public:
   }
   
   cost_type predict(complexity_type complexity) {
+#ifdef CONSTANTS
+    return shared * ((double) complexity);
+#endif
     // tiny complexity leads to tiny cost
     if (complexity == complexity::tiny) {
       return cost::tiny;
@@ -446,21 +512,6 @@ cost_type kappa = 300.0;
 std::atomic<int> estimator_id;
 estimator* estimators[10];
 
-void estimator::init() {
-    shared = cost::undefined;
-    privates.init(cost::undefined);
-#ifdef HONEST
-    to_be_estimated.init(false);
-#endif
-    estimated = false;
-    int id = estimator_id++;
-    estimators[id] = this;
-    reports_number.init(0);
-#ifdef TIMING
-    last_report.init(0);
-#endif
-}
-
 void print_reports() {
   int total = estimator_id.load();
   for (int i = 0; i < total; i++) {
@@ -469,6 +520,35 @@ void print_reports() {
 }
 #endif
 
+
+void estimator::init() {
+    shared = cost::undefined;
+    privates.init(cost::undefined);
+#ifdef HONEST
+    to_be_estimated.init(false);
+#endif
+    estimated = false;
+#ifdef ESTIMATOR_LOGGING
+    int id = estimator_id++;
+    estimators[id] = this;
+    reports_number.init(0);
+#endif
+#ifdef TIMING
+    last_report.init(0);
+#endif
+
+  constant_map_t::iterator preloaded = preloaded_constants.find(get_name());
+  if (preloaded != preloaded_constants.end())
+    shared = preloaded->second;
+}
+
+void estimator::destroy() {
+
+}
+
+void estimator::output() {
+  recorded_constants[name] = estimator::get_constant();
+}
   
 /*---------------------------------------------------------------------*/
 /* Granularity-control policies */
