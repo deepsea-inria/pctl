@@ -18,6 +18,7 @@
 #if defined(USE_PASL_RUNTIME)
 #include "threaddag.hpp"
 #include "native.hpp"
+#include "logging.hpp"
 #elif defined(USE_CILK_PLUS_RUNTIME)
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
