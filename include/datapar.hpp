@@ -273,7 +273,7 @@ controller_type scan_contr<Input,Output,Result,Output_iter,Convert_reduce_comp,C
 #ifdef CONTROL_BY_FORCE_PARALLEL
 const long Scan_branching_factor = 2;
 #else
-const long Scan_branching_factor = 1024;
+const long Scan_branching_factor = DATAPAR_THRESHOLD;
 #endif
 
 static inline long get_nb_blocks(long k, long n) {
@@ -313,14 +313,24 @@ void scan_rec(const parray<Result>& ins,
     if (n <= k) {
       scan_seq(ins, outs_lo, out, id, st);
     } else {
-      parray<Result> partials(m);
+      parray<Result> partials;
+      if (std::is_fundamental<Result>::value) {
+        partials.prefix_tabulate(m, 0);
+      } else {
+        partials.prefix_tabulate(m, m);
+      }
       parallel_for(0l, m, loop_comp, [&] (long i) {
         auto beg = ins.cbegin();
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
         out.merge(beg+lo, beg+hi, partials[i]);
       });
-      parray<Result> scans(m);
+      parray<Result> scans;
+      if (std::is_fundamental<Result>::value) {
+        scans.prefix_tabulate(m, 0);
+      } else {
+        scans.prefix_tabulate(m, m);
+      }
       auto st2 = (is_backward_scan(st)) ? backward_exclusive_scan : forward_exclusive_scan;
       scan_rec(partials, scans.begin(), out, id, merge_comp, st2);
       parallel_for(0l, m, loop_comp, [&] (long i) {
@@ -380,14 +390,24 @@ void scan(Input& in,
       convert_scan(id, in, outs_lo);
     } else {
       parray<Input> splits = in.split(m);
-      parray<Result> partials(m);
+      parray<Result> partials;
+      if (std::is_fundamental<Result>::value) {
+        partials.prefix_tabulate(m, 0);
+      } else {
+        partials.prefix_tabulate(m, m);
+      }
       parallel_for(0l, m, loop_comp, [&] (long i) {
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
         Input in2 = in.slice(splits, lo, hi);
         convert_reduce(in2, partials[i]);
       });
-      parray<Result> scans(m);
+      parray<Result> scans;
+      if (std::is_fundamental<Result>::value) {
+        scans.prefix_tabulate(m, 0);
+      } else {
+        scans.prefix_tabulate(m, m);
+      }
       auto st2 = (is_backward_scan(st)) ? backward_exclusive_scan : forward_exclusive_scan;
       scan_rec(partials, scans.begin(), out, id, merge_comp, st2);
       parallel_for(0l, m, loop_comp, [&] (long i) {
@@ -716,7 +736,12 @@ parray<Result> scan(Iter lo,
                     scan_type st) {
   using output_type = level3::cell_output<Result, Combine>;
   output_type out(id, combine);
-  parray<Result> results(hi-lo);
+  parray<Result> results;
+  if (std::is_fundamental<Result>::value) {
+    results.prefix_tabulate(hi - lo, 0);
+  } else {
+    results.prefix_tabulate(hi - lo, 0);
+  }
   auto outs_lo = results.begin();
   auto lift_idx_dst = [&] (long pos, reference_of<Iter> x, Result& dst) {
     dst = lift_idx(pos, x);

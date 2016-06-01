@@ -210,6 +210,7 @@ public:
     });
 #else
     parallel_for(0l, prefix_sz, [&] (long i) {
+      
       ptr[i] = body(i);
     });
 #endif
