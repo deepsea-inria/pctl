@@ -177,7 +177,7 @@ public:
     parray<Item> tmp;
     tmp.prefix_tabulate(n, 0);
     pmem::copy(tmp.cbegin(), tmp.cbegin() + std::min(n, sz), begin());
-    parallel_for(std::min(n, sz), init_sz, [&] (int i) { tmp[i] = val; });
+    pmem::fill(tmp.cbegin() + std::min(n, sz), tmp.cbegin() + init_sz, val);
     swap(tmp);
   }
 
@@ -198,7 +198,7 @@ public:
   }
 
   void clear() {
-    resize(0);
+    realloc(0);
   }
   
   template <class Body>
@@ -218,7 +218,9 @@ public:
 
   void prefix_tabulate(long n, long prefix_sz) {
     value_type value;
-    prefix_tabulate(n, prefix_sz, [&] (long i) { return value; });
+//    prefix_tabulate(n, prefix_sz, [&] (long i) { return value; });
+     realloc(n);
+     pmem::fill(begin(), begin() + std::min(n, prefix_sz), value);
   }
 
   template <class Body>

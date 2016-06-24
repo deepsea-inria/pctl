@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <map>
 
+#include <sys/time.h>
+
 #if defined(USE_PASL_RUNTIME)
 #include "threaddag.hpp"
 #include "native.hpp"
@@ -105,6 +107,14 @@ double since(cycles_type time_start) {
   return elapsed(time_start, now());
 }
 
+static inline
+double get_wall_time() {
+  struct timespec t;
+  clock_gettime(CLOCK_REALTIME, &t);
+//  std::cerr << t.tv_sec << " " << t.tv_nsec << std::endl;
+  return (double)t.tv_nsec;
+}
+
 /* Read-write estimators constants. */
 
 typedef std::map<std::string, double> constant_map_t;
@@ -169,14 +179,14 @@ static void try_write_constants_to_file() {
 
 /*---------------------------------------------------------------------*/
 /* */
-
-#if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
+int nb_proc = 40;
+#if defined(PLOGGING) || defined(THREADS)
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
 #endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
-#if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
+#if defined(PLOGGING) || defined(THREADS)
   threads_number.mine()++;
 #endif
 #if defined(USE_PASL_RUNTIME)
@@ -193,7 +203,7 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
-#if defined(PLOGGING) || defined(ESTIMATOR_LOGGING)
+#if defined(PLOGGING) || defined(THREADS)
 int threads_created() {
   int value = threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
@@ -229,37 +239,38 @@ public:
   
 // names of configurations supported by the granularity controller
 using execmode_type = enum {
-  Force_parallel,
-  Force_sequential,
-  Sequential,
-  Parallel,
-  Unknown_sequential,
-  Unknown_parallel
+  Force_parallel = 0,
+  Force_sequential = 1,
+  Sequential = 2,
+  Parallel = 3,
+  Unknown_sequential = 4,
+  Unknown_parallel = 5
 };
 
 // `p` configuration of caller; `c` callee
 static inline
 execmode_type execmode_combine(execmode_type p, execmode_type c) {
   // callee gives priority to Force*
-  if (c == Force_parallel || c == Force_sequential) {
+  if (c & 6 == 0) {
     return c;
   }
   // callee gives priority to caller when caller is Sequential
-  if (p == Sequential) {
+#if defined(HONEST) || defined(OPTIMISTIC)
+//  if (p & 1 == 0) { // mode is sequential
+//    if (c & 4 != 0) { // mode is unknown
+  if (p == Sequential || p == Unknown_sequential) {
     if (c == Unknown_sequential || c == Unknown_parallel) {
       return Unknown_sequential;
     }
+
     return Sequential;
   }
-  if (p == Unknown_sequential) {
-    if (c == Unknown_parallel) {
-      return Unknown_sequential;
-    }
-    if (c == Parallel) {
-      return Sequential;
-    }
-    return c;
+#else
+  if (p == Sequential) {
+    return Sequential;
   }
+#endif
+
   // otherwise, callee takes priority
   return c;
 }
@@ -322,18 +333,25 @@ static constexpr cost_type unknown = -2.0;
 static constexpr cost_type tiny = -3.0;
 
 //! a `pessimistic` cost is 1 microsecond per unit of complexity
+#ifdef OPTIMISTIC
+static constexpr cost_type pessimistic = std::numeric_limits<double>::infinity();
+#else
 static constexpr cost_type pessimistic = 1.0;
-  
+#endif
 } // end namespace
 
 namespace {
   
-double cpu_frequency_ghz = 2.1;
-double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
+/*double cpu_frequency_ghz = 2.1;
+double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;*/
 
 class estimator : pasl::pctl::callback::client {
 //private:
 public:
+
+  constexpr static double cpu_frequency_ghz = 2.1;
+  constexpr static double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;
+
   
   constexpr static const double min_report_shared_factor = 2.0;
   constexpr static const double weighted_average_factor = 8.0;
@@ -346,7 +364,7 @@ public:
   perworker_type<bool> to_be_estimated;
 #endif
 
-#ifdef ESTIMATOR_LOGGING
+#ifdef REPORTS
   perworker_type<long> reports_number;
 #endif
 
@@ -358,12 +376,14 @@ public:
   double wait_report = 10 * local_ticks_per_microsecond;
 #endif
 
-  std::string name;
-
+  std::string name;    
+#if defined(HONEST) || defined(OPTIMISTIC)
   // 5 cold runs
-  constexpr static const int number_of_cold_runs = 3;
-  std::atomic<int> estimated;
-  perworker_type<bool> is_estimated;
+  constexpr static const int number_of_cold_runs = 5;
+  bool estimated;
+  perworker_type<double> first_estimation;
+  perworker_type<int> estimations_left;
+#endif
 
   cost_type get_constant() {
 #ifdef CONSTANTS
@@ -382,12 +402,23 @@ public:
 #ifdef CONSTANTS
     return shared;
 #endif
-    cost_type cst = get_constant();
+/*    cost_type cst = get_constant();
     assert (cst != 0.);
     if (cst == cost::undefined) {
       return cost::pessimistic;
     } else {
       return cst;
+    }*/
+    cost_type cst = privates.mine();
+    if (cst != cost::undefined) {
+      return cst;
+    } else {
+      cst = shared;
+      if (cst == cost::undefined) {
+        return cost::pessimistic;
+      } else {
+        return cst;
+      }
     }
   }
 
@@ -450,22 +481,26 @@ public:
   }
 #endif
 
+#if defined(HONEST) || defined(OPTIMISTIC)
   bool is_undefined() {
-    if (is_estimated.mine()) {
+/*    if (is_estimated.mine()) {
       return false;
     }
     if (estimated.load() <= 0) {
       is_estimated.mine() = true;
       return false;
     }
-    return true;
+    return true;*/
+//    return shared == cost::undefined;
+    return !estimated;
   }
 
   bool locally_undefined() {
     return privates.mine() == cost::undefined;
   }                        
+#endif
 
-#ifdef ESTIMATOR_LOGGING
+#ifdef REPORTS
   long number_of_reports() {
     return reports_number.reduce([&] (long a, long b) { return a + b; }, 0);
   }
@@ -486,9 +521,9 @@ public:
 #endif
     
     double elapsed_time = elapsed / local_ticks_per_microsecond;
-    cost_type measured_cst = elapsed_time / complexity;
+    cost_type measured_cst = elapsed_time / complexity;    
 
-#ifdef ESTIMATOR_LOGGING
+#ifdef REPORTS
     reports_number.mine()++;
 #endif
 
@@ -497,26 +532,64 @@ public:
 #endif
 
 #if defined(OPTIMISTIC) || defined(HONEST)
-    if (!is_estimated.mine()) {
+/*    bool cold_run = false;
+    if (!is_undefined()) {
       int cnt = estimated--;
       if (cnt == number_of_cold_runs) { // Do not report first cold run
         return;
       }
+      cold_run = cnt > 0;
+      measured_cst = std::min(measured_cst, shared);
+    }*/
 
-    }
-#endif
+/*      if (estimations_left.mine() > 0) { // cold run
+        int& x = estimations_left.mine();
+        double& estimation = first_estimation.mine();
+        estimation = std::min(estimation, measured_cst);
+//        std::cerr << estimation << " " << measured_cst << std::endl;
+        x--;
+        if (x > 0) {
+          return;
+        }
+        measured_cst = estimation;
+        estimated = true;
+      }*/
+      if (is_undefined()) {  
+        int& x = estimations_left.mine();
+        x--;
+        if (shared == cost::undefined || shared > measured_cst * min_report_shared_factor)
+          shared = measured_cst;
+        if (x > 0) {
+          return;
+        }
+        estimated = true;
+        return;
+      }
+    cost_type cst = get_constant();
+/*    if (cst == cost::undefined) {
+      // handle the first measure without average
+      update(measured_cst);
+    } else*/
+
+/* 
+      if (!is_estimated.mine()) { // cold run
+        is_estimated.mine() = true;
+        return;
+      }*/
+#else
     cost_type cst = get_constant();
     if (cst == cost::undefined) {
       // handle the first measure without average
       update(measured_cst);
-    } else {
-#if defined(OPTIMISTIC) || defined(HONEST)
-      cost_type cst = get_constant();
+    } else
 #endif
+    {
+
       // compute weighted average
       update(((weighted_average_factor * cst) + measured_cst)
              / (weighted_average_factor + 1.0));
     }
+//    std::cerr << complexity << " " << get_constant() << " " << elapsed << std::endl;
   }
 
   void report(complexity_type complexity, cost_type elapsed) {
@@ -548,7 +621,7 @@ cost_type kappa = 300.0;
 
 } // end namespace
 
-#ifdef ESTIMATOR_LOGGING
+#ifdef REPORTS
 std::atomic<int> estimator_id;
 estimator* estimators[10];
 
@@ -568,10 +641,11 @@ void estimator::init() {
     to_be_estimated.init(false);
 #endif
 #if defined(HONEST) || defined(OPTIMISTIC)
-    estimated = number_of_cold_runs;
-    is_estimated.init(false);
+    estimated = false;
+    estimations_left.init(number_of_cold_runs);
+    first_estimation.init(std::numeric_limits<double>::max());
 #endif
-#ifdef ESTIMATOR_LOGGING
+#ifdef REPORTS
     int id = estimator_id++;
     estimators[id] = this;
     reports_number.init(0);
@@ -624,6 +698,11 @@ public:
 /*---------------------------------------------------------------------*/
 /* Controlled statements */
 
+static inline
+double get_wall_time_in_cycles() {
+  return get_wall_time() * estimator::cpu_frequency_ghz;
+}
+
 #ifdef OPTIMISTIC
 perworker_type<cost_type> time_adjustment(0);
 #elif HONEST
@@ -642,10 +721,10 @@ void cstmt_parallel(execmode_type c, const Body_fct& body_fct) {
   execmode.mine().block(c, body_fct);
 }
 
-template <class Par_body_fct>
-void cstmt_unknown(execmode_type c, complexity_type m, Par_body_fct& par_body_fct, estimator& estimator) {
+template <class Body_fct>
+void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estimator& estimator) {
 #ifdef OPTIMISTIC
-  double upper_adjustment = time_adjustment.mine();
+  cost_type upper_adjustment = time_adjustment.mine();
   time_adjustment.mine() = 0;
 #elif HONEST
   if (estimator.is_undefined() && !estimator.is_to_be_estimated()) {
@@ -654,15 +733,26 @@ void cstmt_unknown(execmode_type c, complexity_type m, Par_body_fct& par_body_fc
   }
 #endif
 
+#ifdef CYCLES
   cost_type start = now();
-  execmode.mine().block(c, par_body_fct);
+#else
+  cost_type start = get_wall_time_in_cycles();
+
+#endif
+  execmode.mine().block(c, body_fct);
+#ifdef CYCLES
   cost_type elapsed = since(start);
+#else
+
+  cost_type elapsed = get_wall_time_in_cycles() - start;
+#endif
 
 #ifdef OPTIMISTIC
   if (estimator.is_undefined()) {
 //  if (estimator.locally_undefined()) {
     estimator.report(std::max((complexity_type) 1, m), elapsed + time_adjustment.mine(), true);
-//    std::cerr << "Undefined report " << estimator.shared << " " << elapsed << " " << time_adjustment.mine() << " " << estimator.get_name() << std::endl;
+//    if (pasl::pctl::perworker::get_my_id()() == 0)
+//    std::cerr << "Undefined report " << std::max((complexity_type) 1, m) << " " << estimator.estimated << " " << estimator.shared << " " << elapsed << " " << time_adjustment.mine() << " " << estimator.get_name() << std::endl;
   }
 #elif HONEST
   if (estimator.is_undefined()) {
@@ -678,13 +768,13 @@ void cstmt_unknown(execmode_type c, complexity_type m, Par_body_fct& par_body_fc
 #endif
 
 #ifdef OPTIMISTIC
-  time_adjustment.mine() = std::max(upper_adjustment + estimator.predict(std::max((complexity_type) 1, m)) - elapsed, (double)0);
+  time_adjustment.mine() = upper_adjustment + time_adjustment.mine();//estimator.predict(std::max((complexity_type) 1, m)) - elapsed, (double)0);
 #endif
 }
 
 template <class Seq_body_fct>
 void cstmt_sequential_with_reporting(complexity_type m,
-                                     Seq_body_fct& seq_body_fct,
+                                     const Seq_body_fct& seq_body_fct,
                                      estimator& estimator) {
   cost_type start = now();
   execmode.mine().block(Sequential, seq_body_fct);
@@ -764,6 +854,7 @@ void cstmt(control_by_prediction& contr,
   execmode_type c;
 #ifdef OPTIMISTIC
   if (estimator.is_undefined()) {
+//    c = estimator.predict(std::max((complexity_type)1, m)) <= kappa ? Unknown_sequential : Unknown_parallel;
     c = Unknown_parallel;
   } else {
 #elif HONEST
@@ -789,7 +880,9 @@ void cstmt(control_by_prediction& contr,
 #endif
 
   c = execmode_combine(my_execmode(), c);
-  if (c == Unknown_sequential || c == Unknown_parallel) {
+  if (c == Unknown_sequential) {
+    cstmt_unknown(c, m, seq_body_fct, estimator);
+  } else if (c == Unknown_parallel) {
     cstmt_unknown(c, m, par_body_fct, estimator);
   } else if (c == Sequential) {
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
@@ -852,20 +945,48 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
   } else {
 #ifdef OPTIMISTIC
     if (mode == Unknown_parallel) {
+      cost_type approximation = time_adjustment.mine();
       cost_type left_approximation, right_approximation;
+#ifdef CYCLES
       cost_type start = now();
+#else
+      cost_type start = get_wall_time_in_cycles();
+#endif
       primitive_fork2([&] {
+        time_adjustment.mine() = 0;
+#ifdef CYCLES
         cost_type start = now();
+#else
+        cost_type start = get_wall_time_in_cycles();
+#endif
         execmode.mine().block(mode, f1);
+#ifdef CYCLES
         left_approximation = since(start) + time_adjustment.mine();
+#else
+        left_approximation = (get_wall_time_in_cycles() - start) + time_adjustment.mine();
+#endif
+    
+      }, [&] {
         time_adjustment.mine() = 0;
-      }, [&] { cost_type start = now();
+#ifdef CYCLES
+        cost_type start = now();
+#else
+        cost_type start = get_wall_time_in_cycles();
+#endif
         execmode.mine().block(mode, f2);
+#ifdef CYCLES
         right_approximation = since(start) + time_adjustment.mine();
-        time_adjustment.mine() = 0;
+#else
+        right_approximation = (get_wall_time_in_cycles() - start) + time_adjustment.mine();
+#endif
       });
+#ifdef CYCLES
       cost_type elapsed = since(start);
-      time_adjustment.mine() = std::max(left_approximation + right_approximation - elapsed, (double)0);
+#else
+      cost_type elapsed = get_wall_time_in_cycles() - start;
+#endif
+      time_adjustment.mine() = approximation + (left_approximation + right_approximation - elapsed);//std::max(left_approximation + right_approximation - elapsed, (double)0);
+//      time_adjustment.mine() = approximation + std::max(left_approximation + right_approximation - elapsed, (double)0);
       return;
     }
 #endif

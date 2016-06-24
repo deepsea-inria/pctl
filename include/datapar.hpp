@@ -1177,7 +1177,20 @@ long max_index(Iter lo, Iter hi, const Item& id, const Comp& comp) {
     return x;
   });
 }
-  
+/*---------------------------------------------------------------------*/
+namespace dps {
+template <
+  class Iter,
+  class Item,
+  class Combine
+>
+Item scan(Iter lo,
+          Iter hi,
+          Item id,
+          const Combine& combine,
+          Iter outs_lo, scan_type st);
+}
+
 /*---------------------------------------------------------------------*/
 /* Pack and filter */
   
@@ -1213,78 +1226,51 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
     }
   }
   return total;*/
-#ifdef TIME_MEASURE_D
-      auto start = std::chrono::system_clock::now();
-#endif
-  long len = (n + DATAPAR_THRESHOLD - 1) / DATAPAR_THRESHOLD;
-
-/*  int* sz = (int*) malloc(len * sizeof(int));
-  for (int i = 0; i < len; ++i) {
-    int l = i * DATAPAR_THRESHOLD;
-    int r = std::min(l + DATAPAR_THRESHOLD, (int)n);
+  if (n < DATAPAR_THRESHOLD) {
     int total = 0;
-    for (int j = l; j < r; ++j) {
-      total += flags_lo[j];
+    for (int i = 0; i < n; i++) {
+      if (flags_lo[i]) {
+         total++;
+      }
     }
-    sz[i] = total;
+    auto dst_lo = out(total);
+    total = 0;
+    for (int i = 0; i < n; i++) {
+      if (flags_lo[i]) {
+        dst_lo[total++] = lo[i];
+      }
+    } return total;
   }
-#ifdef TIME_MEASURE_D
-      auto endsz = std::chrono::system_clock::now();
-      std::chrono::duration<float> diffsz = endsz - start;
-      printf ("exectime sz %.3lf\n", diffsz.count());
-#endif*/
+
+  long len = (n + DATAPAR_THRESHOLD - 1) / DATAPAR_THRESHOLD;
 
   auto body = [&] (long i) {
     long l = i * DATAPAR_THRESHOLD;
     long r = std::min((i + 1) * DATAPAR_THRESHOLD, n);
     return level1::reduce(flags_lo + l, flags_lo + r, 0L, combine, lift);
+/*    long sum = 0;
+    for (int i = l; i < r; i++) {
+      sum += flags_lo[i];
+    }
+    return sum;*/
   };
-#ifdef MANUAL_CONTROL
-  parray<long> sizes;
-  sizes.prefix_tabulate(len, 0);
-  parallel_for(0L, len, [&] (int i) {
-    sizes[i] = body(i);
-  });
-#else
   parray<long> sizes(len, body);
-#endif
-#ifdef TIME_MEASURE_D
-      auto end = std::chrono::system_clock::now();
-      std::chrono::duration<float> diff = end - start;
-      printf ("exectime sums %.3lf\n", diff.count());
+//  parray<long> offsets = scan(sizes.begin(), sizes.end(), 0L, combine, forward_exclusive_scan);
+  long m = dps::scan(sizes.begin(), sizes.end(), 0L, combine, sizes.begin(), forward_exclusive_scan);
+  
 
-      start = std::chrono::system_clock::now();
-#endif
-  parray<long> offsets = scan(sizes.begin(), sizes.end(), 0L, combine, forward_exclusive_scan);
-  auto lift_idx = [&] (long, long b) {
-    return b;
-  };
-#ifdef TIME_MEASURE_D
-      end = std::chrono::system_clock::now();
-      diff = end - start;
-      printf ("exectime scan %.3lf\n", diff.count());
-#endif
-
-  long m = level1::total_from_exclusive_scani(sizes.begin(), sizes.end(), offsets.begin(), 0L, combine, lift_idx);
   auto dst_lo = out(m);
-
-#ifdef TIME_MEASURE_D
-      start = std::chrono::system_clock::now();
-#endif
+  
   blocked_for(0L, n, DATAPAR_THRESHOLD, [&] (long l, long r) {
     long b = l / DATAPAR_THRESHOLD;
-    long offset = offsets[b];
+    long offset = sizes[b];
     for (int i = l; i < r; i++) {
       if (flags_lo[i]) {
-        *(dst_lo + (offset++)) = f(i, *(lo + i));
+        dst_lo[offset++] = f(i, lo[i]);
       }
     }
   });
-#ifdef TIME_MEASURE_D
-      end = std::chrono::system_clock::now();
-      diff = end - start;
-      printf ("exectime for %.3lf\n", diff.count());
-#endif
+
   return m;
 }
 
@@ -1408,6 +1394,231 @@ value_type_of<Iter> min(Iter lo, Iter hi) {
   
 /***********************************************************************/
 
+namespace dps {
+  
+/*---------------------------------------------------------------------*/
+/* Reduction level 2 */
+  
+namespace level2 {
+
+template <
+  class Input_iter,
+  class Result,
+  class Output_iter,
+  class Combine,
+  class Lift_comp_rng,
+  class Lift_idx,
+  class Seq_scan_rng_dst
+  >
+void scan(Input_iter lo,
+          Input_iter hi,
+          Result& id,
+          const Combine& combine,
+          Output_iter outs_lo,
+          const Lift_comp_rng& lift_comp_rng,
+          const Lift_idx& lift_idx,
+          const Seq_scan_rng_dst& seq_scan_rng_dst,
+          scan_type st) {
+  using output_type = level3::cell_output<Result, Combine>;
+  output_type out(id, combine);
+  auto lift_idx_dst = [&] (long pos, reference_of<Input_iter> x, Result& dst) {
+    dst = lift_idx(pos, x);
+  };
+  level3::scan(lo, hi, out, id, outs_lo, lift_comp_rng, lift_idx_dst, seq_scan_rng_dst, st);
+}
+  
+} // end namespace
+  
+/*---------------------------------------------------------------------*/
+/* Reduction level 1 */
+  
+namespace level1 {
+  
+template <
+  class Input_iter,
+  class Result,
+  class Output_iter,
+  class Combine,
+  class Lift_comp_idx,
+  class Lift_idx
+>
+Result scani(Input_iter lo,
+             Input_iter hi,
+             Result& id,
+             const Combine& combine,
+             Output_iter outs_lo,
+             const Lift_comp_idx& lift_comp_idx,
+             const Lift_idx& lift_idx,
+             scan_type st) {
+  parray<long> w = weights(hi-lo, [&] (long pos) {
+    return lift_comp_idx(pos, lo+pos);
+  });
+  auto lift_comp_rng = [&] (Input_iter _lo, Input_iter _hi) {
+    long l = _lo - lo;
+    long h = _hi - lo;
+    long wrng = w[l] - w[h];
+    return (long)(log(wrng) * wrng);
+  };
+  using output_type = level3::cell_output<Result, Combine>;
+  output_type out(id, combine);
+  using iterator = typename parray<Result>::iterator;
+  auto seq_scan_rng_dst = [&] (Result _id, Input_iter _lo, Input_iter _hi, iterator outs_lo) {
+    level4::scan_seq(_lo, _hi, outs_lo, out, _id, [&] (reference_of<Input_iter> src, Result& dst) {
+      dst = src;
+    }, st);
+  };
+  level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+  return total_of_exclusive_scan(lo, outs_lo, hi-lo, id, combine, lift_idx);
+}
+  
+template <
+  class Input_iter,
+  class Result,
+  class Output_iter,
+  class Combine,
+  class Lift_idx
+>
+Result scani(Input_iter lo,
+             Input_iter hi,
+             Result& id,
+             const Combine& combine,
+             Output_iter outs_lo,
+             const Lift_idx& lift_idx,
+             scan_type st) {
+  auto lift_comp_rng = [&] (Input_iter lo, Input_iter hi) {
+    return hi - lo;
+  };
+  using output_type = level3::cell_output<Result, Combine>;
+  output_type out(id, combine);
+  using iterator = typename parray<Result>::iterator;
+  auto seq_scan_rng_dst = [&] (Result id, Input_iter lo, Input_iter hi, iterator outs_lo) {
+    level4::scan_seq(lo, hi, outs_lo, out, id, [&] (reference_of<Input_iter> src, Result& dst) {
+      dst = src;
+    }, st);
+  };
+  if (lo >= hi) {
+    return id;
+  }
+  if (st == forward_inclusive_scan) {
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return *(outs_lo + (hi - lo) - 1);
+  } else if (st == backward_inclusive_scan) {
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return *outs_lo;
+  } else if (st == forward_exclusive_scan) {
+    value_type_of<Input_iter> v = *(hi - 1);
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return combine(*(outs_lo + (hi - lo) - 1), lift_idx(hi - lo - 1, v));
+  } else if (st == backward_exclusive_scan) {
+    value_type_of<Input_iter> v = *lo;
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return combine(*outs_lo, lift_idx(0, v));
+  }
+  assert(false);
+}
+} // end namespace
+/*---------------------------------------------------------------------*/
+/* Reduction level 0 */
+
+template <
+  class Iter,
+  class Item,
+  class Combine,
+  class Weight
+>
+Item scan(Iter lo,
+          Iter hi,
+          Item id,
+          const Combine& combine,
+          Iter outs_lo,
+          const Weight& weight,
+          scan_type st) {
+  auto lift_idx = [&] (long, reference_of<Iter> x) {
+    return x;
+  };
+  auto lift_comp_idx = [&] (long, reference_of<Iter>x ) {
+    return weight(x);
+  };
+  return level1::scani(lo, hi, id, combine, outs_lo, lift_comp_idx, lift_idx, st);
+}
+  
+template <
+  class Iter,
+  class Item,
+  class Combine
+>
+Item scan(Iter lo,
+          Iter hi,
+          Item id,
+          const Combine& combine,
+          Iter outs_lo,
+          scan_type st) {
+  auto lift_idx = [&] (long, reference_of<Iter> x) {
+    return x;
+  };
+  return level1::scani(lo, hi, id, combine, outs_lo, lift_idx, st);
+}
+  
+/*---------------------------------------------------------------------*/
+/* Pack and filter */
+  
+template <
+  class Flags_iter,
+  class Input_iter,
+  class Output_iter
+>
+long pack(Flags_iter flags_lo, Input_iter lo, Input_iter hi, Output_iter dst_lo) {
+  return __priv::pack(flags_lo, lo, hi, *lo, [&] (long) {
+    return dst_lo;
+  }, [&] (long, reference_of<Input_iter> x) {
+    return x;
+  });
+}
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred_idx
+>
+long filteri(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred_idx& pred_idx) {
+  long n = hi - lo;
+  parray<bool> flags(n, [&] (long i) {
+    return pred_idx(i, *(lo+i));
+  });
+  return pack(flags.cbegin(), lo, hi, dst_lo);
+}
+  
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+long filter(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) {
+  auto pred_idx = [&] (long, reference_of<Input_iter> x) {
+    return pred(x);
+  };
+  return filteri(lo, hi, dst_lo, pred_idx);
+}
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+long filter_seq(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) {
+  long total = 0;
+  while (lo < hi) {
+    if (pred(*lo)) {
+      *dst_lo = *lo;
+      dst_lo++;
+      total++;
+    }
+    lo++;
+  }
+  return total;
+}
+  
+} // end namespace dps
 } // end namespace
 } // end namespace
 

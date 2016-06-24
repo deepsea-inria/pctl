@@ -34,7 +34,7 @@ namespace pmem {
 
 template <class Iter, class Item>
 void fill(Iter lo, Iter hi, const Item& val) {
-  if (std::is_trivial<Item>::value) {
+  if (std::is_trivially_copyable<Item>::value) {
     // later: can we relax the above constraint without breaking gcc compatibility?
 #ifdef MANUAL_CONTROL
     blocked_for(lo, hi, PMEM_THRESHOLD, [&] (Iter l, Iter r) {
@@ -74,11 +74,13 @@ void copy(Iter lo, Iter hi, Output_iterator dst) {
 }
 
 template <class Item, class Alloc>
-void pdelete(Item* lo, Item* hi) {
-  parallel_for(lo, hi, [&] (Item* p) {
-    Alloc alloc;
-    alloc.destroy(p);
-  });
+void pdelete(Item* lo, Item* hi) { //trivially_destructible
+  if (!std::is_trivially_destructible<Item>()) {
+    parallel_for(lo, hi, [&] (Item* p) {
+      Alloc alloc;
+      alloc.destroy(p);
+    });
+ }
 }
 
 /***********************************************************************/

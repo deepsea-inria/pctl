@@ -78,6 +78,55 @@ controller_type parallel_for<Iter,Body,Comp_rng,Seq_body_rng>::contr(           
     
 } // end namespace
 
+double multiplier = 20.0;
+
+template <
+  class Iter,
+  class Body,
+  class Comp_rng,
+  class Seq_body_rng
+>
+void parallel_for(Iter lo,
+                  Iter hi,
+                  const Comp_rng& comp_rng,
+                  const Body& body,
+                  const Seq_body_rng& seq_body_rng,
+                  par::complexity_type whole_range_comp) {
+#if defined(MANUAL_CONTROL) && defined(USE_CILK_PLUS_RUNTIME)
+//  if (std::is_fundamental<Iter>::value) {
+   { cilk_for (Iter i = lo; i < hi; i++) {
+      body(i);
+    }}
+    return;
+//  }
+#endif
+  
+  
+  using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
+  double comp = comp_rng(lo, hi);
+  if (comp * multiplier * par::nb_proc < whole_range_comp) {
+    par::cstmt_sequential_with_reporting(comp, [&] { seq_body_rng(lo, hi); }, controller_type::contr.get_estimator());
+    return;
+  }
+  par::cstmt(controller_type::contr, [&] { return comp; }, [&] {
+    long n = hi - lo;
+    if (n <= 0) {
+      
+    } else if (n == 1) {
+      body(lo);
+    } else {
+      Iter mid = lo + (n / 2);
+      par::fork2([&] {
+        parallel_for(lo, mid, comp_rng, body, seq_body_rng, whole_range_comp);
+      }, [&] {
+        parallel_for(mid, hi, comp_rng, body, seq_body_rng, whole_range_comp);
+      });
+    }
+  }, [&] {
+    seq_body_rng(lo, hi);
+  });
+}
+
 template <
   class Iter,
   class Body,
@@ -89,33 +138,7 @@ void parallel_for(Iter lo,
                   const Comp_rng& comp_rng,
                   const Body& body,
                   const Seq_body_rng& seq_body_rng) {
-#if defined(MANUAL_CONTROL) && defined(USE_CILK_PLUS_RUNTIME)
-//  if (std::is_fundamental<Iter>::value) {
-   { cilk_for (Iter i = lo; i < hi; i++) {
-      body(i);
-    }}
-    return;
-//  }
-#endif
-  
-  using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
-  par::cstmt(controller_type::contr, [&] { return comp_rng(lo, hi); }, [&] {
-    long n = hi - lo;
-    if (n <= 0) {
-      
-    } else if (n == 1) {
-      body(lo);
-    } else {
-      Iter mid = lo + (n / 2);
-      par::fork2([&] {
-        parallel_for(lo, mid, comp_rng, body, seq_body_rng);
-      }, [&] {
-        parallel_for(mid, hi, comp_rng, body, seq_body_rng);
-      });
-    }
-  }, [&] {
-    seq_body_rng(lo, hi);
-  });
+  parallel_for(lo, hi, comp_rng, body, seq_body_rng, comp_rng(lo, hi));
 }
 
 template <class Iter, class Body, class Comp_rng>
