@@ -8,7 +8,8 @@
  */
 
 #include "granularity.hpp"
-
+#include <cilk/cilk.h>
+#include <cilk/cilk_api.h>
 #ifndef _PCTL_PLOOP_H_
 #define _PCTL_PLOOP_H_
 
@@ -77,6 +78,57 @@ controller_type parallel_for<Iter,Body,Comp_rng,Seq_body_rng>::contr(           
     
 } // end namespace
 
+double multiplier = 20.0;
+
+template <
+  class Iter,
+  class Body,
+  class Comp_rng,
+  class Seq_body_rng
+>
+void parallel_for(Iter lo,
+                  Iter hi,
+                  const Comp_rng& comp_rng,
+                  const Body& body,
+                  const Seq_body_rng& seq_body_rng,
+                  par::complexity_type whole_range_comp) {
+#if defined(MANUAL_CONTROL) && defined(USE_CILK_PLUS_RUNTIME)
+//  if (std::is_fundamental<Iter>::value) {
+   { cilk_for (Iter i = lo; i < hi; i++) {
+      body(i);
+    }}
+    return;
+//  }
+#endif
+  
+  
+  using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
+  double comp = comp_rng(lo, hi);
+#ifdef OPTIMISTIC
+  if (comp * multiplier * par::nb_proc < whole_range_comp) {
+    par::cstmt_sequential_with_reporting(comp, [&] { seq_body_rng(lo, hi); }, controller_type::contr.get_estimator());
+    return;
+  }
+#endif
+  par::cstmt(controller_type::contr, [&] { return comp; }, [&] {
+    long n = hi - lo;
+    if (n <= 0) {
+      
+    } else if (n == 1) {
+      body(lo);
+    } else {
+      Iter mid = lo + (n / 2);
+      par::fork2([&] {
+        parallel_for(lo, mid, comp_rng, body, seq_body_rng, whole_range_comp);
+      }, [&] {
+        parallel_for(mid, hi, comp_rng, body, seq_body_rng, whole_range_comp);
+      });
+    }
+  }, [&] {
+    seq_body_rng(lo, hi);
+  });
+}
+
 template <
   class Iter,
   class Body,
@@ -88,24 +140,7 @@ void parallel_for(Iter lo,
                   const Comp_rng& comp_rng,
                   const Body& body,
                   const Seq_body_rng& seq_body_rng) {
-  using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
-  par::cstmt(controller_type::contr, [&] { return comp_rng(lo, hi); }, [&] {
-    long n = hi - lo;
-    if (n <= 0) {
-      
-    } else if (n == 1) {
-      body(lo);
-    } else {
-      Iter mid = lo + (n / 2);
-      par::fork2([&] {
-        parallel_for(lo, mid, comp_rng, body, seq_body_rng);
-      }, [&] {
-        parallel_for(mid, hi, comp_rng, body, seq_body_rng);
-      });
-    }
-  }, [&] {
-    seq_body_rng(lo, hi);
-  });
+  parallel_for(lo, hi, comp_rng, body, seq_body_rng, comp_rng(lo, hi));
 }
 
 template <class Iter, class Body, class Comp_rng>
@@ -131,6 +166,16 @@ void parallel_for(Iter lo, Iter hi, const Body& body) {
   range::parallel_for(lo, hi, comp_rng, body);
 }
   
+template <class Iter, class Body>
+void blocked_for(Iter l, Iter r, int bsize, const Body& body) {
+  int n = ((int)(r - l) + bsize - 1) / bsize;	
+  parallel_for(0, n, [&] (int b) {
+    Iter ll = l + b * bsize;
+    Iter rr = std::min(l + (b + 1) * bsize, r);
+    body(ll, rr);
+  });
+}
+
 /***********************************************************************/
 
 } // end namespace

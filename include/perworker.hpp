@@ -89,7 +89,7 @@ public:
   }
 
   template <class Body_fct>
-  Item reduce(Body_fct& combine, const Item& zero) {
+  Item reduce(const Body_fct& combine, const Item& zero) {
     Item result = zero;
     for (int i = 0; i < size(); i++) {
       result = combine(result, at(i));
@@ -148,7 +148,7 @@ public:
   
   template <class Body_fct>
   Item reduce(const Body_fct& combine, const Item& zero) {
-    items.reduce(combine, zero);
+    return items.reduce(combine, zero);
   }
 };
 

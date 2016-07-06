@@ -19,6 +19,8 @@ namespace pctl {
   
 /*---------------------------------------------------------------------*/
 /* Merging and sorting for chunked sequences */
+
+#define PSORT_THRESHOLD 2000
   
 namespace {
   
@@ -81,6 +83,12 @@ Chunkedseq merge_par(Chunkedseq& xs, Chunkedseq& ys, const Compare& compare) {
   long n = xs.size();
   long m = ys.size();
   Chunkedseq result;
+#ifdef MANUAL_CONTROL
+  if (n + m < PSORT_THRESHOLD) {
+    result = std::move(merge_seq(xs, ys, compare));
+    return;
+  }
+#endif
   par::cstmt(controller_type::contr, [&] { return n + m; }, [&] {
     if (n < m) {
       result = std::move(merge_par(ys, xs, compare));
@@ -248,6 +256,12 @@ void merge_par(const Item* xs, const Item* ys, Item* tmp,
   using controller_type = merge_parray_contr<Item>;
   long n1 = hi_xs-lo_xs;
   long n2 = hi_ys-lo_ys;
+#ifdef MANUAL_CONTROL
+  if (n1 + n2 < PSORT_THRESHOLD) {
+    merge_seq(xs, ys, tmp, lo_xs, hi_xs, lo_ys, hi_ys, lo_tmp, compare);
+    return;
+  }
+#endif
   par::cstmt(controller_type::contr, [&] { return n1+n2; }, [&] {
     if (n1 < n2) {
       // to ensure that the first subarray being sorted is the larger or the two

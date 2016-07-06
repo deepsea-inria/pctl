@@ -26,7 +26,8 @@ typedef enum {
   ESTIM_PREDICT,
   ESTIM_REPORT,
   ESTIM_UPDATE,
-  ESTIM_UPDATE_SHARED
+  ESTIM_UPDATE_SHARED,
+  MESSAGE
 } event_type;
 
 static inline std::string name_of(event_type type) {
@@ -37,6 +38,7 @@ static inline std::string name_of(event_type type) {
     case ESTIM_REPORT:        return std::string("estim_report        \t%s\t%f\t%f\t%f"); // name complexity estimated estimated/complexity
     case ESTIM_UPDATE:        return std::string("estim_update        \t%s\t%f"); // name constant
     case ESTIM_UPDATE_SHARED: return std::string("estim_update_shared \t%s\t%f"); // name constant
+    case MESSAGE:             return std::string("message             \t%s");
     default: assert(false);
   }
 }

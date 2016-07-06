@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <memory>
 #include <utility>
+#include <chrono>
 #ifndef TARGET_MAC_OS
 #include <malloc.h>
 #endif
@@ -47,6 +48,8 @@ static inline bool is_backward_scan(scan_type st) {
 namespace level4 {
 
 namespace {
+
+#define DATAPAR_THRESHOLD 2048
   
 template <
   class Input,
@@ -65,6 +68,12 @@ void reduce_rec(Input& in,
                 const Convert_reduce& convert_reduce,
                 const Seq_convert_reduce& seq_convert_reduce,
                 Granularity_controller& contr) {
+#ifdef MANUAL_CONTROL
+  if (convert_reduce_comp(in) < DATAPAR_THRESHOLD) {
+    seq_convert_reduce(in, dst);
+    return;
+  }
+#endif
   par::cstmt(contr, [&] { return convert_reduce_comp(in); }, [&] {
     if (! in.can_split()) {
       convert_reduce(in, dst);
@@ -264,7 +273,7 @@ controller_type scan_contr<Input,Output,Result,Output_iter,Convert_reduce_comp,C
 #ifdef CONTROL_BY_FORCE_PARALLEL
 const long Scan_branching_factor = 2;
 #else
-const long Scan_branching_factor = 1024;
+const long Scan_branching_factor = DATAPAR_THRESHOLD;
 #endif
 
 static inline long get_nb_blocks(long k, long n) {
@@ -284,6 +293,12 @@ void scan_rec(const parray<Result>& ins,
               const Result& id,
               const Merge_comp& merge_comp,
               scan_type st) {
+#ifdef MANUAL_CONTROL
+  if (ins.size() < DATAPAR_THRESHOLD) {
+    scan_seq(ins, outs_lo, out, id, st);
+    return;
+  }
+#endif
   using controller_type = scan_rec_contr<Result, Output, Merge_comp>;
   const long k = Scan_branching_factor;
   long n = ins.size();
@@ -298,14 +313,24 @@ void scan_rec(const parray<Result>& ins,
     if (n <= k) {
       scan_seq(ins, outs_lo, out, id, st);
     } else {
-      parray<Result> partials(m);
+      parray<Result> partials;
+      if (std::is_fundamental<Result>::value) {
+        partials.prefix_tabulate(m, 0);
+      } else {
+        partials.prefix_tabulate(m, m);
+      }
       parallel_for(0l, m, loop_comp, [&] (long i) {
         auto beg = ins.cbegin();
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
         out.merge(beg+lo, beg+hi, partials[i]);
       });
-      parray<Result> scans(m);
+      parray<Result> scans;
+      if (std::is_fundamental<Result>::value) {
+        scans.prefix_tabulate(m, 0);
+      } else {
+        scans.prefix_tabulate(m, m);
+      }
       auto st2 = (is_backward_scan(st)) ? backward_exclusive_scan : forward_exclusive_scan;
       scan_rec(partials, scans.begin(), out, id, merge_comp, st2);
       parallel_for(0l, m, loop_comp, [&] (long i) {
@@ -343,6 +368,12 @@ void scan(Input& in,
           const Convert_scan& convert_scan,
           const Seq_convert_scan& seq_convert_scan,
           scan_type st) {
+#ifdef MANUAL_CONTROL
+  if (in.size() < DATAPAR_THRESHOLD) {
+    seq_convert_scan(id, in, outs_lo);
+    return;
+  }
+#endif
   using controller_type = scan_contr<Input, Output, Result, Output_iter,
                                      Convert_reduce_comp, Convert_reduce,
                                      Convert_scan, Seq_convert_scan>;
@@ -359,14 +390,24 @@ void scan(Input& in,
       convert_scan(id, in, outs_lo);
     } else {
       parray<Input> splits = in.split(m);
-      parray<Result> partials(m);
+      parray<Result> partials;
+      if (std::is_fundamental<Result>::value) {
+        partials.prefix_tabulate(m, 0);
+      } else {
+        partials.prefix_tabulate(m, m);
+      }
       parallel_for(0l, m, loop_comp, [&] (long i) {
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
         Input in2 = in.slice(splits, lo, hi);
         convert_reduce(in2, partials[i]);
       });
-      parray<Result> scans(m);
+      parray<Result> scans;
+      if (std::is_fundamental<Result>::value) {
+        scans.prefix_tabulate(m, 0);
+      } else {
+        scans.prefix_tabulate(m, m);
+      }
       auto st2 = (is_backward_scan(st)) ? backward_exclusive_scan : forward_exclusive_scan;
       scan_rec(partials, scans.begin(), out, id, merge_comp, st2);
       parallel_for(0l, m, loop_comp, [&] (long i) {
@@ -695,7 +736,12 @@ parray<Result> scan(Iter lo,
                     scan_type st) {
   using output_type = level3::cell_output<Result, Combine>;
   output_type out(id, combine);
-  parray<Result> results(hi-lo);
+  parray<Result> results;
+  if (std::is_fundamental<Result>::value) {
+    results.prefix_tabulate(hi - lo, 0);
+  } else {
+    results.prefix_tabulate(hi - lo, 0);
+  }
   auto outs_lo = results.begin();
   auto lift_idx_dst = [&] (long pos, reference_of<Iter> x, Result& dst) {
     dst = lift_idx(pos, x);
@@ -1111,9 +1157,9 @@ long max_index(Iter lo, Iter hi, const Item& id, const Comp& comp, const Lift& l
     long i = _lo - lo;
     result_type res(0, id);
     for (Iter it = _lo; it != _hi; it++, i++) {
-      const Item& x = *it;
+      auto x = lift(i, *it);
       if (comp(x, res.second)) {
-        res = result_type(i, lift(i, x));
+        res = result_type(i, x);
       }
     }
     return res;
@@ -1131,7 +1177,20 @@ long max_index(Iter lo, Iter hi, const Item& id, const Comp& comp) {
     return x;
   });
 }
-  
+/*---------------------------------------------------------------------*/
+namespace dps {
+template <
+  class Iter,
+  class Item,
+  class Combine
+>
+Item scan(Iter lo,
+          Iter hi,
+          Item id,
+          const Combine& combine,
+          Iter outs_lo, scan_type st);
+}
+
 /*---------------------------------------------------------------------*/
 /* Pack and filter */
   
@@ -1155,18 +1214,63 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
   auto lift = [&] (reference_of<Flags_iter> x) {
     return (long)x;
   };
-  parray<long> offsets = level1::scan(flags_lo, flags_lo+n, 0L, combine, lift, forward_exclusive_scan);
-  auto lift_idx = [&] (long, reference_of<Flags_iter> b) {
-    return lift(b);
-  };
-  long m = level1::total_from_exclusive_scani(flags_lo, flags_lo+n, offsets.begin(), 0L, combine, lift_idx);
-  auto dst_lo = out(m);
-  parallel_for(0L, n, [&] (long i) {
+/*  long total = 0;
+  for (long i = 0; i < n; i++) {
+    total += flags_lo[i];
+  }
+  auto dst = out(total);
+  long p = 0;
+  for (long i = 0; i < n; i++) {
     if (flags_lo[i]) {
-      long offset = offsets[i];
-      *(dst_lo+offset) = f(i, *(lo+i));
+      dst[p++] = lo[i];
+    }
+  }
+  return total;*/
+  if (n < DATAPAR_THRESHOLD) {
+    int total = 0;
+    for (int i = 0; i < n; i++) {
+      if (flags_lo[i]) {
+         total++;
+      }
+    }
+    auto dst_lo = out(total);
+    total = 0;
+    for (int i = 0; i < n; i++) {
+      if (flags_lo[i]) {
+        dst_lo[total++] = lo[i];
+      }
+    } return total;
+  }
+
+  long len = (n + DATAPAR_THRESHOLD - 1) / DATAPAR_THRESHOLD;
+
+  auto body = [&] (long i) {
+    long l = i * DATAPAR_THRESHOLD;
+    long r = std::min((i + 1) * DATAPAR_THRESHOLD, n);
+    return level1::reduce(flags_lo + l, flags_lo + r, 0L, combine, lift);
+/*    long sum = 0;
+    for (int i = l; i < r; i++) {
+      sum += flags_lo[i];
+    }
+    return sum;*/
+  };
+  parray<long> sizes(len, body);
+//  parray<long> offsets = scan(sizes.begin(), sizes.end(), 0L, combine, forward_exclusive_scan);
+  long m = dps::scan(sizes.begin(), sizes.end(), 0L, combine, sizes.begin(), forward_exclusive_scan);
+  
+
+  auto dst_lo = out(m);
+  
+  blocked_for(0L, n, DATAPAR_THRESHOLD, [&] (long l, long r) {
+    long b = l / DATAPAR_THRESHOLD;
+    long offset = sizes[b];
+    for (int i = l; i < r; i++) {
+      if (flags_lo[i]) {
+        dst_lo[offset++] = f(i, lo[i]);
+      }
     }
   });
+
   return m;
 }
 
@@ -1177,20 +1281,39 @@ parray<value_type_of<Item_iter>> pack(Item_iter lo, Item_iter hi, Flags_iter fla
   parray<value_type_of<Item_iter>> result;
   value_type_of<Item_iter> tmp;
   __priv::pack(flags_lo, lo, hi, tmp, [&] (long m) {
-    result.resize(m);
+    result.prefix_tabulate(m, 0);
     return result.begin();
   }, [&] (long, reference_of<Item_iter> x) {
     return x;
   });
   return result;
 }
+
+template <class Item_iter, class Flags_iter>
+parray<value_type_of<Item_iter>> pack_seq(Item_iter lo, Item_iter hi, Flags_iter flags_lo) {
+  long total = 0;
+  parray<value_type_of<Item_iter>> result;
+  for (long it = 0; it < hi - lo; it++) {
+    if (flags_lo[it]) {
+      total++;
+    }
+  }
+  result.prefix_tabulate(total, 0);
+  total = 0;
+  for (long it = 0; it < hi - lo; it++) {
+    if (flags_lo[it]) {
+      result[total++] = lo[it];
+    }
+  }
+  return result;
+}        
   
 template <class Flags_iter>
 parray<long> pack_index(Flags_iter lo, Flags_iter hi) {
   parray<long> result;
   long dummy;
   __priv::pack(lo, lo, hi, dummy, [&] (long m) {
-    result.resize(m);
+    result.prefix_tabulate(m, 0);
     return result.begin();
   }, [&] (long offset, reference_of<Flags_iter>) {
     return offset;
@@ -1201,17 +1324,34 @@ parray<long> pack_index(Flags_iter lo, Flags_iter hi) {
 template <class Iter, class Pred_idx>
 parray<value_type_of<Iter>> filteri(Iter lo, Iter hi, const Pred_idx& pred_idx) {
   long n = hi - lo;
+#ifdef TIME_MEASURE_D
+      auto start = std::chrono::system_clock::now();
+#endif
   parray<bool> flags(n, [&] (long i) {
     return pred_idx(i, *(lo+i));
   });
+#ifdef TIME_MEASURE_D
+      auto end = std::chrono::system_clock::now();
+      std::chrono::duration<float> diff = end - start;
+      printf ("exectime initialize filteri %.3lf\n", diff.count());
+#endif
+
   value_type_of<Iter> dummy;
   parray<value_type_of<Iter>> dst;
+#ifdef TIME_MEASURE_D
+      start = std::chrono::system_clock::now();
+#endif
   __priv::pack(flags.cbegin(), lo, hi, dummy, [&] (long m) {
-    dst.resize(m);
+    dst.prefix_tabulate(m, 0);
     return dst.begin();
   }, [&] (long, reference_of<Iter> x) {
     return x;
   });
+#ifdef TIME_MEASURE_D
+      end = std::chrono::system_clock::now();
+      diff = end - start;
+      printf ("exectime pack filteri %.3lf\n", diff.count());
+#endif
   return dst;
 }
   
@@ -1254,6 +1394,231 @@ value_type_of<Iter> min(Iter lo, Iter hi) {
   
 /***********************************************************************/
 
+namespace dps {
+  
+/*---------------------------------------------------------------------*/
+/* Reduction level 2 */
+  
+namespace level2 {
+
+template <
+  class Input_iter,
+  class Result,
+  class Output_iter,
+  class Combine,
+  class Lift_comp_rng,
+  class Lift_idx,
+  class Seq_scan_rng_dst
+  >
+void scan(Input_iter lo,
+          Input_iter hi,
+          Result& id,
+          const Combine& combine,
+          Output_iter outs_lo,
+          const Lift_comp_rng& lift_comp_rng,
+          const Lift_idx& lift_idx,
+          const Seq_scan_rng_dst& seq_scan_rng_dst,
+          scan_type st) {
+  using output_type = level3::cell_output<Result, Combine>;
+  output_type out(id, combine);
+  auto lift_idx_dst = [&] (long pos, reference_of<Input_iter> x, Result& dst) {
+    dst = lift_idx(pos, x);
+  };
+  level3::scan(lo, hi, out, id, outs_lo, lift_comp_rng, lift_idx_dst, seq_scan_rng_dst, st);
+}
+  
+} // end namespace
+  
+/*---------------------------------------------------------------------*/
+/* Reduction level 1 */
+  
+namespace level1 {
+  
+template <
+  class Input_iter,
+  class Result,
+  class Output_iter,
+  class Combine,
+  class Lift_comp_idx,
+  class Lift_idx
+>
+Result scani(Input_iter lo,
+             Input_iter hi,
+             Result& id,
+             const Combine& combine,
+             Output_iter outs_lo,
+             const Lift_comp_idx& lift_comp_idx,
+             const Lift_idx& lift_idx,
+             scan_type st) {
+  parray<long> w = weights(hi-lo, [&] (long pos) {
+    return lift_comp_idx(pos, lo+pos);
+  });
+  auto lift_comp_rng = [&] (Input_iter _lo, Input_iter _hi) {
+    long l = _lo - lo;
+    long h = _hi - lo;
+    long wrng = w[l] - w[h];
+    return (long)(log(wrng) * wrng);
+  };
+  using output_type = level3::cell_output<Result, Combine>;
+  output_type out(id, combine);
+  using iterator = typename parray<Result>::iterator;
+  auto seq_scan_rng_dst = [&] (Result _id, Input_iter _lo, Input_iter _hi, iterator outs_lo) {
+    level4::scan_seq(_lo, _hi, outs_lo, out, _id, [&] (reference_of<Input_iter> src, Result& dst) {
+      dst = src;
+    }, st);
+  };
+  level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+  return total_of_exclusive_scan(lo, outs_lo, hi-lo, id, combine, lift_idx);
+}
+  
+template <
+  class Input_iter,
+  class Result,
+  class Output_iter,
+  class Combine,
+  class Lift_idx
+>
+Result scani(Input_iter lo,
+             Input_iter hi,
+             Result& id,
+             const Combine& combine,
+             Output_iter outs_lo,
+             const Lift_idx& lift_idx,
+             scan_type st) {
+  auto lift_comp_rng = [&] (Input_iter lo, Input_iter hi) {
+    return hi - lo;
+  };
+  using output_type = level3::cell_output<Result, Combine>;
+  output_type out(id, combine);
+  using iterator = typename parray<Result>::iterator;
+  auto seq_scan_rng_dst = [&] (Result id, Input_iter lo, Input_iter hi, iterator outs_lo) {
+    level4::scan_seq(lo, hi, outs_lo, out, id, [&] (reference_of<Input_iter> src, Result& dst) {
+      dst = src;
+    }, st);
+  };
+  if (lo >= hi) {
+    return id;
+  }
+  if (st == forward_inclusive_scan) {
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return *(outs_lo + (hi - lo) - 1);
+  } else if (st == backward_inclusive_scan) {
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return *outs_lo;
+  } else if (st == forward_exclusive_scan) {
+    value_type_of<Input_iter> v = *(hi - 1);
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return combine(*(outs_lo + (hi - lo) - 1), lift_idx(hi - lo - 1, v));
+  } else if (st == backward_exclusive_scan) {
+    value_type_of<Input_iter> v = *lo;
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return combine(*outs_lo, lift_idx(0, v));
+  }
+  assert(false);
+}
+} // end namespace
+/*---------------------------------------------------------------------*/
+/* Reduction level 0 */
+
+template <
+  class Iter,
+  class Item,
+  class Combine,
+  class Weight
+>
+Item scan(Iter lo,
+          Iter hi,
+          Item id,
+          const Combine& combine,
+          Iter outs_lo,
+          const Weight& weight,
+          scan_type st) {
+  auto lift_idx = [&] (long, reference_of<Iter> x) {
+    return x;
+  };
+  auto lift_comp_idx = [&] (long, reference_of<Iter>x ) {
+    return weight(x);
+  };
+  return level1::scani(lo, hi, id, combine, outs_lo, lift_comp_idx, lift_idx, st);
+}
+  
+template <
+  class Iter,
+  class Item,
+  class Combine
+>
+Item scan(Iter lo,
+          Iter hi,
+          Item id,
+          const Combine& combine,
+          Iter outs_lo,
+          scan_type st) {
+  auto lift_idx = [&] (long, reference_of<Iter> x) {
+    return x;
+  };
+  return level1::scani(lo, hi, id, combine, outs_lo, lift_idx, st);
+}
+  
+/*---------------------------------------------------------------------*/
+/* Pack and filter */
+  
+template <
+  class Flags_iter,
+  class Input_iter,
+  class Output_iter
+>
+long pack(Flags_iter flags_lo, Input_iter lo, Input_iter hi, Output_iter dst_lo) {
+  return __priv::pack(flags_lo, lo, hi, *lo, [&] (long) {
+    return dst_lo;
+  }, [&] (long, reference_of<Input_iter> x) {
+    return x;
+  });
+}
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred_idx
+>
+long filteri(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred_idx& pred_idx) {
+  long n = hi - lo;
+  parray<bool> flags(n, [&] (long i) {
+    return pred_idx(i, *(lo+i));
+  });
+  return pack(flags.cbegin(), lo, hi, dst_lo);
+}
+  
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+long filter(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) {
+  auto pred_idx = [&] (long, reference_of<Input_iter> x) {
+    return pred(x);
+  };
+  return filteri(lo, hi, dst_lo, pred_idx);
+}
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+long filter_seq(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) {
+  long total = 0;
+  while (lo < hi) {
+    if (pred(*lo)) {
+      *dst_lo = *lo;
+      dst_lo++;
+      total++;
+    }
+    lo++;
+  }
+  return total;
+}
+  
+} // end namespace dps
 } // end namespace
 } // end namespace
 

@@ -126,9 +126,25 @@ Result scani(Input_iter lo,
       dst = src;
     }, st);
   };
-  level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
-
-  return pasl::pctl::level1::total_from_exclusive_scani(lo, hi, outs_lo, id, combine, lift_idx);
+  if (lo >= hi) {
+    return id;
+  }
+  if (st == forward_inclusive_scan) {
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return *(outs_lo + (hi - lo) - 1);
+  } else if (st == backward_inclusive_scan) {
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return *outs_lo;
+  } else if (st == forward_exclusive_scan) {
+    value_type_of<Input_iter> v = *(hi - 1);
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return combine(*(outs_lo + (hi - lo) - 1), lift_idx(hi - lo - 1, v));
+  } else if (st == backward_exclusive_scan) {
+    value_type_of<Input_iter> v = *lo;
+    level2::scan(lo, hi, id, combine, outs_lo, lift_comp_rng, lift_idx, seq_scan_rng_dst, st);
+    return combine(*outs_lo, lift_idx(0, v));
+  }
+  assert(false);
 }
 
 } // end namespace
@@ -214,6 +230,24 @@ long filter(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) 
     return pred(x);
   };
   return filteri(lo, hi, dst_lo, pred_idx);
+}
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+long filter_seq(Input_iter lo, Input_iter hi, Output_iter dst_lo, const Pred& pred) {
+  long total = 0;
+  while (lo < hi) {
+    if (pred(*lo)) {
+      *dst_lo = *lo;
+      dst_lo++;
+      total++;
+    }
+    lo++;
+  }
+  return total;
 }
   
 } // end namespace
