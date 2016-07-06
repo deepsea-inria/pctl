@@ -28,7 +28,6 @@ namespace splitting {
 
 /*!
   Splitting function which uses binary split.
-
   \param depth the depth between other recursion calls
   \param l start position of range
   \param r end position of range (exclusive)
@@ -41,7 +40,6 @@ std::pair<int_t, int_t> binary_splitting(int_t depth, int_t l, int_t r, const co
 
 /*!
   Splitting function which uses binary search split.
-
   \param depth the depth between other recursion calls
   \param l start position of range
   \param r end position of range (exclusive)
@@ -71,7 +69,6 @@ std::pair<int_t, int_t> binary_search_splitting(int_t depth, int_t left, int_t r
 
 /*!
   Splitting function which uses binary split or binary search split depending on the depth of recursion calls.
-
   \param depth the depth between other recursion calls
   \param l start position of range
   \param r end position of range (exclusive)
@@ -92,7 +89,6 @@ std::pair<int_t, int_t> hybrid_splitting(int_t depth, int_t l, int_t r, const co
 /*!=====================================================================================================================
   Calculates the value of given multiplication function on elements of the given array in certain range using binary splitting technique
   where complexity function of reduce on subarray is given.
-
   \param items array of elements
   \param l start position of range
   \param r end position of range (exclusive)
@@ -156,7 +152,6 @@ Item weighted_reduce(Array<Item>& items, int_t l, int_t r, const Complexity_fct&
 /*!
   Calculates the value of given multiplication function on elements of the given array using binary splitting technique
   where complexity function of reduce on subarray is given.
-
   \param items array of elements
   \param complexity function which returns the complexity of reduce function application on subarray
   \param identity identity element of multiplication
@@ -172,7 +167,6 @@ Item weighted_reduce(Array<Item>& items, const Complexity_fct& complexity, const
 /*!
   Calculates the value of given multiplication function on elements of the given array assuming that the reduce function
   on subarray works in time proportional to the sum of weights of each element using given temporary array for scan of weights.
-
   \param items array of elements
   \param tmp_array temporary array to contain scan of weights of elements
   \param identity identity element of multiplication
@@ -195,13 +189,11 @@ Item weighted_sequence_reduce(Array<Item>& items, TmpArray<cost_type>& tmp_array
 /*!
   Calculates the value of given multiplication function on elements of the given array assuming that the reduce function
   on subarray works in time proportional to the sum of weight of each element.
-
   \param items array of elements
   \param identity identity element of multiplication
   \param multiplication multiplication function
   \param weight function which returns the weight (complexity) of element with type pasl::granularity::cost_type
   \return result of reduce
-
   \warning If Item is pointer, then to not have a memory loss it is better to use shared_ptr<Item>.
 */
 template <template <class Item> class Array, class Item, class Weight_fct, class Multiply_fct, class Split_fct>

@@ -1248,14 +1248,8 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
     long l = i * DATAPAR_THRESHOLD;
     long r = std::min((i + 1) * DATAPAR_THRESHOLD, n);
     return level1::reduce(flags_lo + l, flags_lo + r, 0L, combine, lift);
-/*    long sum = 0;
-    for (int i = l; i < r; i++) {
-      sum += flags_lo[i];
-    }
-    return sum;*/
   };
   parray<long> sizes(len, body);
-//  parray<long> offsets = scan(sizes.begin(), sizes.end(), 0L, combine, forward_exclusive_scan);
   long m = dps::scan(sizes.begin(), sizes.end(), 0L, combine, sizes.begin(), forward_exclusive_scan);
   
 
