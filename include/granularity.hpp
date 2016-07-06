@@ -108,11 +108,10 @@ double since(cycles_type time_start) {
 }
 
 static inline
-double get_wall_time() {
+long long get_wall_time() {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
-//  std::cerr << t.tv_sec << " " << t.tv_nsec << std::endl;
-  return (double)t.tv_nsec;
+  return t.tv_sec * 1000000000LL + t.tv_nsec;
 }
 
 /* Read-write estimators constants. */
@@ -699,8 +698,8 @@ public:
 /* Controlled statements */
 
 static inline
-double get_wall_time_in_cycles() {
-  return get_wall_time() * estimator::cpu_frequency_ghz;
+double since_in_cycles(long long start) {
+  return (get_wall_time() - start) * estimator::cpu_frequency_ghz;
 }
 
 #ifdef OPTIMISTIC
@@ -736,15 +735,13 @@ void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estim
 #ifdef CYCLES
   cost_type start = now();
 #else
-  cost_type start = get_wall_time_in_cycles();
-
+  long long start = get_wall_time();
 #endif
   execmode.mine().block(c, body_fct);
 #ifdef CYCLES
   cost_type elapsed = since(start);
 #else
-
-  cost_type elapsed = get_wall_time_in_cycles() - start;
+  cost_type elapsed = since_in_cycles(start);
 #endif
 
 #ifdef OPTIMISTIC
@@ -856,7 +853,12 @@ void cstmt(control_by_prediction& contr,
   if (estimator.is_undefined()) {
 //    c = estimator.predict(std::max((complexity_type)1, m)) <= kappa ? Unknown_sequential : Unknown_parallel;
     c = Unknown_parallel;
+//    m = complexity_measure_fct();
   } else {
+    if (my_execmode() == Sequential || my_execmode() == Unknown_sequential) {
+      execmode.mine().block(Sequential, seq_body_fct);
+      return;
+    }
 #elif HONEST
   if (estimator.is_undefined()) {
     c = Unknown_parallel;
@@ -864,12 +866,17 @@ void cstmt(control_by_prediction& contr,
     c = Sequential;
   } else {
 #endif
+//    m = complexity_measure_fct();
     if (m == complexity::tiny) {
       c = Sequential;
     } else if (m == complexity::undefined) {
       c = Parallel;
     } else {
-      if (estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
+      if (
+#ifndef OPTIMISTIC
+          my_execmode() == Sequential ||
+#endif
+          estimator.predict(std::max((complexity_type)1, m)) <= kappa) {
         c = Sequential;
       } else {
         c = Parallel;
@@ -878,13 +885,17 @@ void cstmt(control_by_prediction& contr,
 #if defined(OPTIMISTIC) || defined(HONEST)
   }
 #endif
-
   c = execmode_combine(my_execmode(), c);
   if (c == Unknown_sequential) {
     cstmt_unknown(c, m, seq_body_fct, estimator);
   } else if (c == Unknown_parallel) {
     cstmt_unknown(c, m, par_body_fct, estimator);
   } else if (c == Sequential) {
+/*#ifdef OPTIMISTIC
+    if (my_execmode() == Sequential || my_execmode() == Unknown_sequential) {
+      cstmt_sequential(Sequential, seq_body_fct);
+    } else
+#endif*/
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
     cstmt_parallel(c, par_body_fct);
@@ -916,7 +927,130 @@ void cstmt(control_by_prediction& contr,
            const Seq_body_fct& seq_body_fct) {
   cstmt(contr, complexity_measure_fct, par_body_fct, seq_body_fct);
 }
-  
+
+/***********************************************************************/
+template <class Last>
+std::string type_name() {
+  return std::string(typeid(Last).name());
+}
+
+template <class First, class Second, class ... Types>
+std::string type_name() {
+  return type_name<First>() + " " + type_name<Second, Types...>();
+}
+
+template <const char* method_name, int id, class ... Types>
+class controller_holder {
+public:
+  static control_by_prediction controller;
+};
+
+template <const char* method_name, int id, class ... Types>
+control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
+
+// controlled statement with built in estimators
+constexpr char default_name[] = "auto";
+template <
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<default_name, 1, Complexity_measure_fct, Par_body_fct, Seq_body_fct>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+
+template <
+class Complexity_measure_fct,
+class Par_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<default_name, 1, Complexity_measure_fct, Par_body_fct>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct);
+}
+
+template <
+const char* estimator_name,
+class ... Types,
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<estimator_name, 1, int>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+
+template <
+const char* estimator_name,
+class ... Types,
+class Complexity_measure_fct,
+class Par_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<estimator_name, 1, int>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct);
+}
+
+template <
+const char* method_name,
+int id,
+class ... Types,
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<method_name, id, Types...>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+
+template <
+const char* method_name,
+int id,
+class ... Types,
+class Complexity_measure_fct,
+class Par_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<method_name, id, Types...>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct);
+}
+
+template <
+class ... Types,
+class Complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<default_name, 1, Types...>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+
+template <
+class ... Types,
+class Complexity_measure_fct,
+class Par_body_fct
+>
+void cstmt(const Complexity_measure_fct& complexity_measure_fct,
+           const Par_body_fct& par_body_fct
+           ) {
+    using controller_type = pasl::pctl::granularity::controller_holder<default_name, 1, Types...>;
+    cstmt(controller_type::controller, complexity_measure_fct, par_body_fct);
+}
+
 /*---------------------------------------------------------------------*/
 /* Granularity-control enriched fork join */
 
@@ -950,20 +1084,20 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 #ifdef CYCLES
       cost_type start = now();
 #else
-      cost_type start = get_wall_time_in_cycles();
+      long long start = get_wall_time();
 #endif
       primitive_fork2([&] {
         time_adjustment.mine() = 0;
 #ifdef CYCLES
         cost_type start = now();
 #else
-        cost_type start = get_wall_time_in_cycles();
+        long long start = get_wall_time();
 #endif
         execmode.mine().block(mode, f1);
 #ifdef CYCLES
         left_approximation = since(start) + time_adjustment.mine();
 #else
-        left_approximation = (get_wall_time_in_cycles() - start) + time_adjustment.mine();
+        left_approximation = since_in_cycles(start) + time_adjustment.mine();
 #endif
     
       }, [&] {
@@ -971,19 +1105,19 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 #ifdef CYCLES
         cost_type start = now();
 #else
-        cost_type start = get_wall_time_in_cycles();
+        long long start = get_wall_time();
 #endif
         execmode.mine().block(mode, f2);
 #ifdef CYCLES
         right_approximation = since(start) + time_adjustment.mine();
 #else
-        right_approximation = (get_wall_time_in_cycles() - start) + time_adjustment.mine();
+        right_approximation = since_in_cycles(start) + time_adjustment.mine();
 #endif
       });
 #ifdef CYCLES
       cost_type elapsed = since(start);
 #else
-      cost_type elapsed = get_wall_time_in_cycles() - start;
+      cost_type elapsed = since_in_cycles(start);
 #endif
       time_adjustment.mine() = approximation + (left_approximation + right_approximation - elapsed);//std::max(left_approximation + right_approximation - elapsed, (double)0);
 //      time_adjustment.mine() = approximation + std::max(left_approximation + right_approximation - elapsed, (double)0);
@@ -998,26 +1132,7 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
   }
 }
 
-/***********************************************************************/
 
-template <class Last>
-std::string type_name() {
-  return std::string(typeid(Last).name());
-}
-
-template <class First, class Second, class ... Types>
-std::string type_name() {
-  return type_name<First>() + " " + type_name<Second, Types...>();
-}
-
-template <const char* method_name, int id, class ... Types>
-class controller_holder {
-public:
-  static control_by_prediction controller;
-};
-
-template <const char* method_name, int id, class ... Types>
-control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
 
 } // end namespace
 } // end namespace

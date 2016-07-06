@@ -104,10 +104,12 @@ void parallel_for(Iter lo,
   
   using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
   double comp = comp_rng(lo, hi);
+#ifdef OPTIMISTIC
   if (comp * multiplier * par::nb_proc < whole_range_comp) {
     par::cstmt_sequential_with_reporting(comp, [&] { seq_body_rng(lo, hi); }, controller_type::contr.get_estimator());
     return;
   }
+#endif
   par::cstmt(controller_type::contr, [&] { return comp; }, [&] {
     long n = hi - lo;
     if (n <= 0) {
