@@ -24,6 +24,7 @@ using cost_type = pasl::pctl::granularity::cost_type;
 /*!
   Maps elements of given array in certain range into specified array balancing the workload depending on the complexity of
   map on subarrays.
+
   \param items array of elements
   \param l start position of range
   \param r end position of range (exclusive)
@@ -53,6 +54,7 @@ void weighted_map(Array<ItemIn>& items, int_t l, int_t r, ResultArray<ItemOut>& 
 
 /*!
   Maps elements of given array into specified array balancing the workload depending on the complexity of map on subarrays.
+
   \param items array of elements
   \param result array to contain result of map
   \param complexity function which returns the complexity of map function application on subarray
@@ -65,6 +67,7 @@ void weighted_map(Array<ItemIn>& items, ResultArray<ItemOut>& result, const Comp
 
 /*!
   Maps elements of given array into specified array balancing the workload depending on the complexity of map on each element using given temporary array for scan of weights.
+
   \param items array of elements
   \param result array to contain result of map
   \param tmp_array temporary array to contain scan of weights of elements
@@ -83,6 +86,7 @@ void weighted_map(Array<ItemIn>& items, ResultArray<ItemOut>& result, TmpArray<p
 
 /*!
   Maps elements of given array into specified array balancing the workload depending on the complexity of map on each element.
+
   \param items array of elements
   \param result array to contain result of map
   \param map_fct function to map with
@@ -96,6 +100,7 @@ void weighted_map_no_tmp(Array<ItemIn>& items, ResultArray<ItemOut>& result, con
 
 /*!
   Maps elements of given array balancing the workload depending on the complexity of map on each element using given temporary array for scan of weights.
+
   \param items array of elements
   \param tmp_array temporary array to contain scan of weights of elements
   \param map_fct function to map with
@@ -110,6 +115,7 @@ array<ItemOut> weighted_map_no_result(Array<ItemIn>& items, TmpArray<pasl::pctl:
 
 /*!
   Maps elements of given array balancing the workload depending on the complexity of map on each element.
+
   \param items array of elements
   \param map_fct function to map with
   \param weight function which returns the weight (complexity) of element with type pasl::granularity::cost_type
