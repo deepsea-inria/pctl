@@ -1,5 +1,5 @@
 /*!
- * \file fib.cpp
+ * \file nested_loop.cpp
  * \brief Nested loops example
  * \date 2015
  * \copyright COPYRIGHT (c) 2015 Umut Acar, Arthur Chargueraud, and
@@ -26,11 +26,11 @@ namespace pasl {
   namespace pctl {
     int m;
     double comp_outer(int l, int r) {
-      return m * (r - l);
+      return 1. * m * (r - l);
     }
 
     double comp_inner(int l, int r) {
-      return r - l;
+      return 1. * (r - l);
     }
 
     void ex() {
@@ -59,8 +59,15 @@ int main(int argc, char** argv) {
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end - start;
     printf ("exectime %.3lf\n", diff.count());
+#ifdef ESTIMATOR_LOGGING
+    pasl::pctl::granularity::print_reports();
+#endif
+
 #ifdef LOGGING
     pasl::pctl::logging::dump();
+#endif
+
+#if defined(LOGGING) || defined(ESTIMATOR_LOGGING)
     printf("number of created threads: %d\n", pasl::pctl::granularity::threads_created());
 #endif
   });

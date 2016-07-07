@@ -1,6 +1,6 @@
 /*!
- * \file fib.cpp
- * \brief Fibonacci example
+ * \file nested_3_loop.cpp
+ * \brief 3 nested loops example
  * \date 2015
  * \copyright COPYRIGHT (c) 2015 Umut Acar, Arthur Chargueraud, and
  * Michael Rainey. All rights reserved.
@@ -12,6 +12,7 @@
 #include "io.hpp"
 #include "dpsdatapar.hpp"
 #include "cmdline.hpp"
+#include "ploop.hpp"
 #include <math.h>
 #include <chrono>
 
@@ -19,43 +20,35 @@
 
 namespace pasl {
   namespace pctl {
-    granularity::control_by_prediction cfib("fib");
-
-    double phi = (1 + sqrt(5)) / 2;
-
-    double comp(int n) {
-      return pow(phi, n);
+    int m, k;
+    double comp_loop1(int l, int r) {
+      return m * k * (r - l);
     }
 
-    long long fib_seq(int n) {
-      if (n == 0 || n == 1) {
-        return n;
-      } else {
-        return fib_seq(n - 1) + fib_seq(n - 2);
-      }
+    double comp_loop2(int l, int r) {
+      return k * (r - l);
     }
 
-    long long fib_par(int n) {
-      long long result = 0;
-      granularity::cstmt(cfib, [&] { return comp(n); }, [&] {
-        if (n == 0 || n == 1) {
-          result = n;
-          return;
-        }
-        long long a = 0, b = 0;
-        granularity::fork2(
-          [&] { a = fib_par(n - 1); },
-          [&] { b = fib_par(n - 2); }
-        );
-        result = a + b;
-      }, [&] { result = fib_seq(n); });
-      return result;
+    double comp_loop3(int l, int r) {
+      return r - l;
     }
 
     void ex() {
       int n = pasl::util::cmdline::parse_or_default_int("n", 1000);
-      long long ans = fib_par(n);
-      std::cout << ans << std::endl;
+      m = pasl::util::cmdline::parse_or_default_int("m", 1000);
+      k = pasl::util::cmdline::parse_or_default_int("k", 1000);
+
+      perworker::array<long, perworker::get_my_id> cnt;
+      cnt.init(0);
+
+      range::parallel_for(0, n, &comp_loop1, [&] (int i) { 
+        range::parallel_for(0, m, &comp_loop2, [&] (int i) {
+          range::parallel_for(0, k, &comp_loop3, [&] (int i) {
+            cnt.mine()++;
+          });
+        });
+      });
+      std::cout << cnt.reduce([&] (long a, long b) { return a + b; }, 0) << std::endl;
     }
   }
 }
