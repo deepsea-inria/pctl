@@ -1226,7 +1226,7 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
     }
   }
   return total;*/
-  if (n < DATAPAR_THRESHOLD) {
+  if (n <= DATAPAR_THRESHOLD) {
     int total = 0;
     for (int i = 0; i < n; i++) {
       if (flags_lo[i]) {
@@ -1243,7 +1243,7 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
   }
 
   long len = (n + DATAPAR_THRESHOLD - 1) / DATAPAR_THRESHOLD;
-
+//  std::cerr << "Some parallelism " << len << std::endl;
   auto body = [&] (long i) {
     long l = i * DATAPAR_THRESHOLD;
     long r = std::min((i + 1) * DATAPAR_THRESHOLD, n);
@@ -1255,16 +1255,43 @@ long pack(Flags_iter flags_lo, Iter lo, Iter hi, Item&, const Output& out, const
     return sum;*/
   };
   parray<long> sizes(len, body);
+/*  parray<long> sizes;
+  sizes.prefix_tabulate(len, 0);
+  cilk_for(long i = 0; i < len; i++) {
+    sizes[i] = body(i);
+  }*/
+
 //  parray<long> offsets = scan(sizes.begin(), sizes.end(), 0L, combine, forward_exclusive_scan);
   long m = dps::scan(sizes.begin(), sizes.end(), 0L, combine, sizes.begin(), forward_exclusive_scan);
   
 
   auto dst_lo = out(m);
   
-  blocked_for(0L, n, DATAPAR_THRESHOLD, [&] (long l, long r) {
+/*  blocked_for(0L, n, DATAPAR_THRESHOLD, [&, dst_lo, flags_lo, sizes] (long l, long r) {
     long b = l / DATAPAR_THRESHOLD;
     long offset = sizes[b];
     for (int i = l; i < r; i++) {
+      if (flags_lo[i]) {
+        dst_lo[offset++] = f(i, lo[i]);
+      }
+    }
+  });*/
+//  cilk_for (long i = 0; i < len; i++) {
+  range::parallel_for(0L, len, [&] (long l, long r) { return r - l; }, [&, dst_lo, flags_lo, sizes] (long i) {
+    long l = i * DATAPAR_THRESHOLD;
+    long r = std::min(n, (i + 1) * DATAPAR_THRESHOLD);
+    long b = i;
+    long offset = sizes[b];
+    for (int i = l; i < r; i++) {
+      if (flags_lo[i]) {
+        dst_lo[offset++] = f(i, lo[i]);
+      }
+    }
+  }, [&, dst_lo, flags_lo, sizes] (long l, long r) {
+    long ll = l * DATAPAR_THRESHOLD;
+    long rr = std::min(n, (r + 1) * DATAPAR_THRESHOLD);
+    long offset = sizes[l];
+    for (int i = ll; i < rr; i++) {
       if (flags_lo[i]) {
         dst_lo[offset++] = f(i, lo[i]);
       }
