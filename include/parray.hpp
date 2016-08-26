@@ -184,7 +184,8 @@ public:
     init_sz = std::min(n, init_sz);
     parray<Item> tmp;
     tmp.prefix_tabulate(n, 0);
-    swap(tmp);    if (n == 0) return;
+    swap(tmp);
+    if (n == 0) return;
     pmem::copy(tmp.begin(), tmp.begin() + std::min(n, sz), begin());
     if (init_sz != n) {
       pmem::fill(begin() + std::min(n, sz), begin() + init_sz, val);

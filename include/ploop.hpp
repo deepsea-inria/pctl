@@ -79,6 +79,7 @@ controller_type parallel_for<Iter,Body,Comp_rng,Seq_body_rng>::contr(           
 } // end namespace
 
 double multiplier = 20.0;
+int cacheline = 64;
 
 template <
   class Iter,
@@ -104,7 +105,8 @@ void parallel_for(Iter lo,
   
   using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
   double comp = comp_rng(lo, hi);
-#ifdef OPTIMISTIC
+#if defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
+//  std::cerr << controller_type::contr.get_estimator().privates.mine() << " " << controller_type::contr.get_estimator().shared << " " << comp << " " << whole_range_comp << std::endl;
   if (comp * multiplier * par::nb_proc < whole_range_comp) {
     par::cstmt_sequential_with_reporting(comp, [&] { seq_body_rng(lo, hi); }, controller_type::contr.get_estimator());
     return;
@@ -118,6 +120,7 @@ void parallel_for(Iter lo,
       body(lo);
     } else {
       Iter mid = lo + (n / 2);
+
       par::fork2([&] {
         parallel_for(lo, mid, comp_rng, body, seq_body_rng, whole_range_comp);
       }, [&] {
@@ -169,9 +172,13 @@ void parallel_for(Iter lo, Iter hi, const Body& body) {
 template <class Iter, class Body>
 void blocked_for(Iter l, Iter r, int bsize, const Body& body) {
   int n = ((int)(r - l) + bsize - 1) / bsize;	
-  parallel_for(0, n, [&] (int b) {
+  range::parallel_for(0, n, [&] (int l, int r) { return r - l; }, [&] (int b) {
     Iter ll = l + b * bsize;
     Iter rr = std::min(l + (b + 1) * bsize, r);
+    body(ll, rr);
+  }, [&] (int left, int right) {
+    Iter ll = l + left * bsize;
+    Iter rr = std::min(l + right * bsize, r);
     body(ll, rr);
   });
 }
