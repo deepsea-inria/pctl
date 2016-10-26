@@ -56,13 +56,15 @@ private:
   void alloc(long n) {
     sz = n;
     assert(sz >= 0);
-    value_type* p = (value_type*)malloc(sz * sizeof(value_type));
-    assert(p != nullptr);
+    value_type* p = sz == 0 ? nullptr : (value_type*)malloc(sz * sizeof(value_type));
+//    assert(p != nullptr);
     ptr.reset(p);
   }
   
   void destroy() {
-    pmem::pdelete<Item, Alloc>(begin(), end());
+    if (!ptr) {
+      pmem::pdelete<Item, Alloc>(begin(), end());
+    }
     sz = 0;
   }
   
@@ -73,7 +75,9 @@ private:
   
   void fill(long n, const value_type& val) {
     realloc(n);
-    pmem::fill(begin(), end(), val);
+    if (n != 0) {
+      pmem::fill(begin(), end(), val);
+    }
   }
   
   void check(long i) const {
@@ -110,6 +114,7 @@ public:
   
   parray(std::initializer_list<value_type> xs) {
     alloc(xs.size());
+    if (sz == 0) return;
     long i = 0;
     for (auto it = xs.begin(); it != xs.end(); it++) {
       new (&ptr[i++]) value_type(*it);
@@ -117,7 +122,7 @@ public:
   }
   
   parray(const parray& other) {
-    alloc(other.size());
+    alloc(other.size());if (sz == 0) return;
     pmem::copy(other.cbegin(), other.cend(), begin());
   }
   
@@ -127,6 +132,7 @@ public:
       return;
     }
     alloc(n);
+    if (n == 0) return;
     pmem::copy(lo, hi, begin());
   }
   
@@ -139,7 +145,9 @@ public:
       return *this;
     }
     realloc(other.size());
-    pmem::copy(other.cbegin(), other.cend(), begin());
+    if (sz != 0) {
+      pmem::copy(other.cbegin(), other.cend(), begin());
+    }
     return *this;
   }
   
@@ -176,9 +184,12 @@ public:
     init_sz = std::min(n, init_sz);
     parray<Item> tmp;
     tmp.prefix_tabulate(n, 0);
-    pmem::copy(tmp.cbegin(), tmp.cbegin() + std::min(n, sz), begin());
-    pmem::fill(tmp.cbegin() + std::min(n, sz), tmp.cbegin() + init_sz, val);
     swap(tmp);
+    if (n == 0) return;
+    pmem::copy(tmp.begin(), tmp.begin() + std::min(n, sz), begin());
+    if (init_sz != n) {
+      pmem::fill(begin() + std::min(n, sz), begin() + init_sz, val);
+    }
   }
 
   void resize(long n, const value_type& val) {
@@ -187,6 +198,7 @@ public:
     }
     parray<Item> tmp(n, val);
     swap(tmp);
+    if (n == 0) return;
     long m = std::min(tmp.size(), size());
     assert(size() >= m);
     pmem::copy(tmp.cbegin(), tmp.cbegin()+m, begin());
@@ -204,22 +216,28 @@ public:
   template <class Body>
   void prefix_tabulate(long n, long prefix_sz, const Body& body) {
     realloc(n);
+    if (n == 0) return;
+    auto ptr = this->ptr.get();
 #ifdef MANUAL_CONTROL
-    blocked_for(0L, prefix_sz, PARRAY_THRESHOLD, [&] (long l, long r) {
+/*    blocked_for(0L, prefix_sz, PARRAY_THRESHOLD, [&, ptr] (long l, long r) {
       for (long j = l; j < r; j++) { ptr[j] = body(j); }
-    });
+    });*/
+    parallel_for(0L, prefix_sz, [&, ptr] (int j) { ptr[j] = body(j); });
 #else
-    parallel_for(0l, prefix_sz, [&] (long i) {
-      
+    range::parallel_for(0l, prefix_sz, [&] (long l, long r) { return r - l; }, [&, ptr] (long i) {
       ptr[i] = body(i);
+    }, [&, ptr] (long l, long r) {
+      for (long i = l; i < r; i++) {
+        ptr[i] = body(i);
+      }
     });
 #endif
   }
 
   void prefix_tabulate(long n, long prefix_sz) {
     value_type value;
-//    prefix_tabulate(n, prefix_sz, [&] (long i) { return value; });
      realloc(n);
+     if (n == 0) return;
      pmem::fill(begin(), begin() + std::min(n, prefix_sz), value);
   }
 
