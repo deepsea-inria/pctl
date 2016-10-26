@@ -97,13 +97,6 @@ cycles_type now() {
 }
 
 static inline
-long long get_wall_time() {
-  struct timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec * 1000000000LL + t.tv_nsec;
-}
-
-static inline
 double elapsed(cycles_type time_start, cycles_type time_end) {
   return (double)time_end - (double)time_start;
 }
@@ -112,7 +105,6 @@ static inline
 double since(cycles_type time_start) {
   return elapsed(time_start, now());
 }
-<<<<<<< HEAD
   
 #ifdef TARGET_MAC_OS
 #include <sys/time.h>
@@ -139,9 +131,6 @@ long long get_wall_time() {
 }
 #endif
   
-=======
-
->>>>>>> 541a7ff99ab8c59a947f23bfbb4747742e4f3d9c
 /* Read-write estimators constants. */
 
 typedef std::map<std::string, double> constant_map_t;
