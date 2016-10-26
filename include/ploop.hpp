@@ -8,8 +8,6 @@
  */
 
 #include "granularity.hpp"
-#include <cilk/cilk.h>
-#include <cilk/cilk_api.h>
 #ifndef _PCTL_PLOOP_H_
 #define _PCTL_PLOOP_H_
 

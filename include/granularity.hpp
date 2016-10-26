@@ -14,7 +14,6 @@
 #include <execinfo.h>
 #include <stdio.h>
 #include <map>
-
 #include <sys/time.h>
 
 #if defined(USE_PASL_RUNTIME)
@@ -106,14 +105,32 @@ static inline
 double since(cycles_type time_start) {
   return elapsed(time_start, now());
 }
-
+  
+#ifdef TARGET_MAC_OS
+#include <sys/time.h>
+//clock_gettime is not implemented on OSX
+int clock_gettime(int /*clk_id*/, struct timespec* t) {
+  struct timeval now;
+  int rv = gettimeofday(&now, NULL);
+  if (rv) return rv;
+  t->tv_sec  = now.tv_sec;
+  t->tv_nsec = now.tv_usec * 1000;
+  return 0;
+}
+long long get_wall_time() {
+  struct timespec t;
+  clock_gettime(0, &t);
+  return t.tv_sec * 1000000000LL + t.tv_nsec;
+}
+#else
 static inline
 long long get_wall_time() {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
   return t.tv_sec * 1000000000LL + t.tv_nsec;
 }
-
+#endif
+  
 /* Read-write estimators constants. */
 
 typedef std::map<std::string, double> constant_map_t;
