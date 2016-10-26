@@ -149,8 +149,10 @@ parray<long> weights(long n, const Weight& weight) {
 template <class Iter, class Body, class Comp>
 void parallel_for(Iter lo, Iter hi, const Comp& comp, const Body& body) {
   parray<long> w = weights(hi - lo, comp);
-  auto comp_rng = [&] (long lo, long hi) {
-    return w[hi] - w[lo];
+  auto comp_rng = [&] (Iter lo2, Iter hi2) {
+    auto lo3 = lo2 - lo;
+    auto hi3 = hi2 - lo;
+    return w[hi3] - w[lo3];
   };
   range::parallel_for(lo, hi, comp_rng, body);
 }
