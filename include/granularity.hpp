@@ -798,6 +798,8 @@ void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estim
 //    if (pasl::pctl::perworker::get_my_id()() == 0)
 //    std::cerr << "Undefined report " << std::max((complexity_type) 1, m) << " " << estimator.estimated << " " << estimator.shared << " " << elapsed << " " << time_adjustment.mine() << " " << estimator.get_name() << std::endl;
   }
+#elif TWO_MODES
+  estimator.report(std::max((complexity_type) 1, m), work.mine(), true);
 #elif EASYOPTIMISTIC
   if (estimator.is_undefined()) {
     estimator.report(std::max((complexity_type) 1, m), work.mine(), true);
@@ -920,7 +922,15 @@ void cstmt(control_by_prediction& contr,
   complexity_type m = complexity_measure_fct();
   cost_type predicted;
   execmode_type c;
-#if defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
+#ifdef TWO_MODES
+  if (estimator.is_undefined()) {
+    c = Parallel;
+  } else {
+    if (my_execmode() == Sequential) {
+      execmode.mine().block(Sequential, seq_body_fct);
+      return;
+    }
+#elif defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
   if (estimator.is_undefined()) {
 //    c = estimator.predict(std::max((complexity_type)1, m)) <= kappa ? Unknown_sequential : Unknown_parallel;
     c = Unknown_parallel;
@@ -978,11 +988,14 @@ void cstmt(control_by_prediction& contr,
   }
 #endif
   c = execmode_combine(my_execmode(), c);
+#if !defined(TWO_MODES)
   if (c == Unknown_sequential) {
     cstmt_unknown(c, m, seq_body_fct, estimator);
   } else if (c == Unknown_parallel) {
     cstmt_unknown(c, m, par_body_fct, estimator);
-  } else if (c == Sequential) {
+  } else
+#endif
+  if (c == Sequential) {
 /*#ifdef OPTIMISTIC
     if (my_execmode() == Sequential || my_execmode() == Unknown_sequential) {
       cstmt_sequential(Sequential, seq_body_fct);
@@ -990,8 +1003,12 @@ void cstmt(control_by_prediction& contr,
 #endif*/
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
+#ifdef TWO_MODES
+      cstmt_unknown(c, m, par_body_fct, estimator);
+#else
 #ifdef EASYOPTIMISTIC
     if (my_execmode() == Unknown_parallel) {
+#ifdef STRAIGHTFORWARD
 #ifdef CYCLES
       cost_type current_work = work.mine() + since(timer.mine()) + predicted;
 #else
@@ -1004,11 +1021,15 @@ void cstmt(control_by_prediction& contr,
 #else
       timer.mine() = get_wall_time();
 #endif
+#elif
+      cstmt_unknown(Unknown_parallel, m, par_body_fct, estimator);
+#endif
     } else
 #endif
     {
       cstmt_parallel(c, par_body_fct);
     }
+#endif // TWO_MODES
   }
 #ifdef PRUNING
   if (topmost) {
@@ -1185,7 +1206,7 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
 #endif
   execmode_type mode = my_execmode();
   if ( (mode == Sequential) || (mode == Force_sequential)
-#if defined(HONEST) || defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
+#if defined(HONEST) || defined(OPTIMISTIC) || defined(EASYOPTIMISTIC) || !defined(TWO_MODES)
     || (mode == Unknown_sequential)
 #endif
 #ifdef HONEST
@@ -1248,7 +1269,10 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
       return;
     }
 #elif EASYOPTIMISTIC
+#if !defined(TWO_MODES)
     if (mode == Unknown_parallel) {
+#endif
+
 #ifdef CYCLES
       cost_type upper_work = work.mine() + since(timer.mine());
 #else
@@ -1296,8 +1320,10 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
         timer.mine() = get_wall_time();
 #endif
       return;
+#if !defined(TWO_MODES)
     }
 #endif
+#endif // EASYOPTIMITSTIC
 
     primitive_fork2([&] {
 #ifdef TIMEPRUNING
