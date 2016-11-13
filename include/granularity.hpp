@@ -527,6 +527,11 @@ public:
 #endif
 
   void report(complexity_type complexity, cost_type elapsed, bool forced) {
+#ifdef REPORT_THRESHOLD
+    if (elapsed < 100) {
+      return;
+    }
+#endif
 #ifdef CONSTANTS
     return;
 #endif
@@ -904,6 +909,164 @@ void cstmt(control_by_force_sequential& contr,
 }
 
 template <
+class Seq_complexity_measure_fct,
+class Par_complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(control_by_prediction& contr,
+           const Par_complexity_measure_fct& par_complexity_measure_fct,
+           const Seq_complexity_measure_fct& seq_complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+#ifdef MANUAL_CONTROL
+  par_body_fct();
+  return;
+#endif
+#ifdef PCTL_SEQUENTIAL_BASELINE
+  seq_body_fct();
+  return;
+#endif
+#if defined(PCTL_SEQUENTIAL_ELISION) || defined(PCTL_PARALLEL_ELISION)
+  par_body_fct();
+  return;
+#endif
+  estimator& estimator = contr.get_estimator();
+#ifdef PRUNING
+  bool topmost = false;
+  if (estimator.topmost_complexity.mine() == 0) {
+    topmost = true;
+  }
+#elif TIMEPRUNING
+  bool topmost = false;
+  if (topmost_time.mine() == 0) {
+    topmost = true;
+  }
+#endif
+  complexity_type m = seq_complexity_measure_fct();
+  cost_type predicted;
+  execmode_type c;
+#ifdef TWO_MODES
+  if (estimator.is_undefined()) {
+    c = Parallel;
+  } else {
+    if (my_execmode() == Sequential) {
+      execmode.mine().block(Sequential, seq_body_fct);
+      return;
+    }
+#elif defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
+  if (estimator.is_undefined()) {
+//    c = estimator.predict(std::max((complexity_type)1, m)) <= kappa ? Unknown_sequential : Unknown_parallel;
+    c = Unknown_parallel;
+//    m = complexity_measure_fct();
+  } else {
+    if (my_execmode() == Sequential || my_execmode() == Unknown_sequential) {
+      execmode.mine().block(Sequential, seq_body_fct);
+      return;
+    }
+#elif HONEST
+  if (estimator.is_undefined()) {
+    c = Unknown_parallel;
+  } else if (nested_unknown.mine() > 0) {
+    c = Sequential;
+  } else {
+#endif
+//    m = complexity_measure_fct();
+    if (m == complexity::tiny) {
+      c = Sequential;
+    } else if (m == complexity::undefined) {
+      c = Parallel;
+    } else {
+#if !defined(OPTIMISTIC) && !defined(EASYOPTIMISTIC)
+    if (my_execmode() == Sequential) {
+        c = Sequential;
+    } else {
+#endif
+        complexity_type comp = std::max((complexity_type)1, m);
+        predicted = estimator.predict(comp);
+#ifdef PRUNING
+        if (topmost) {
+          estimator.topmost_complexity.mine() = comp;
+        }
+#elif TIMEPRUNING
+        if (topmost) {
+          topmost_time.mine() = predicted;
+        }
+#endif
+        if (predicted <= kappa
+#ifdef PRUNING
+            || comp * 20 * nb_proc <= estimator.topmost_complexity.mine()
+#elif TIMEPRUNING
+            || predicted * 20 * nb_proc <= topmost_time.mine()
+#endif
+           ) {
+          c = Sequential;
+        } else {
+          c = Parallel;
+        }
+#if !defined(OPTIMISTIC) && !defined(EASYOPTIMISTIC)
+      }
+#endif
+    }
+#if defined(OPTIMISTIC) || defined(HONEST) || defined(EASYOPTIMISTIC)
+  }
+#endif
+  c = execmode_combine(my_execmode(), c);
+#if !defined(TWO_MODES)
+  if (c == Unknown_sequential) {
+    cstmt_unknown(c, m, seq_body_fct, estimator);
+  } else if (c == Unknown_parallel) {
+    cstmt_unknown(c, m, par_body_fct, estimator);
+  } else
+#endif
+  if (c == Sequential) {
+/*#ifdef OPTIMISTIC
+    if (my_execmode() == Sequential || my_execmode() == Unknown_sequential) {
+      cstmt_sequential(Sequential, seq_body_fct);
+    } else
+#endif*/
+    cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
+  } else {
+#ifdef TWO_MODES
+      cstmt_unknown(c, par_complexity_measure_fct(), par_body_fct, estimator);
+#else
+#ifdef EASYOPTIMISTIC
+    if (my_execmode() == Unknown_parallel) {
+#ifdef STRAIGHTFORWARD
+#ifdef CYCLES
+      cost_type current_work = work.mine() + since(timer.mine()) + predicted;
+#else
+      cost_type current_work = work.mine() + since_in_cycles(timer.mine()) + predicted;
+#endif
+      cstmt_parallel(c, par_body_fct);
+      work.mine() = current_work;
+#ifdef CYCLES
+      timer.mine() = now();
+#else
+      timer.mine() = get_wall_time();
+#endif
+#elif
+      cstmt_unknown(Unknown_parallel, par_complexity_measure_fct(), par_body_fct, estimator);
+#endif
+    } else
+#endif
+    {
+      cstmt_parallel(c, par_body_fct);
+    }
+#endif // TWO_MODES
+  }
+#ifdef PRUNING
+  if (topmost) {
+    estimator.topmost_complexity.mine() = 0;
+  }
+#elif TIMEPRUNING
+  if (topmost) {
+    topmost_time.mine() = 0;
+  }
+#endif
+}
+
+template <
 class Complexity_measure_fct,
 class Par_body_fct,
 class Seq_body_fct
@@ -1070,7 +1233,7 @@ void cstmt(control_by_prediction& contr,
 }
 
 // same as above but accepts all arguments to support general case
-template <
+/*template <
 class Cutoff_fct,
 class Complexity_measure_fct,
 class Par_body_fct,
@@ -1082,7 +1245,7 @@ void cstmt(control_by_prediction& contr,
            const Par_body_fct& par_body_fct,
            const Seq_body_fct& seq_body_fct) {
   cstmt(contr, complexity_measure_fct, par_body_fct, seq_body_fct);
-}
+}*/
 
 /***********************************************************************/
 template <class Last>
@@ -1106,6 +1269,22 @@ control_by_prediction controller_holder<method_name, id, Types ...>::controller(
 
 // controlled statement with built in estimators
 constexpr char default_name[] = "auto";
+
+template <
+class Par_complexity_measure_fct,
+class Seq_complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Par_complexity_measure_fct& par_complexity_measure_fct,
+           const Seq_complexity_measure_fct& seq_complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<default_name, 1, Par_complexity_measure_fct, Seq_complexity_measure_fct, Par_body_fct, Seq_body_fct>;
+    cstmt(controller_type::controller, par_complexity_measure_fct, seq_complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+
+
 template <
 class Complexity_measure_fct,
 class Par_body_fct,
@@ -1131,6 +1310,22 @@ void cstmt(const Complexity_measure_fct& complexity_measure_fct,
 template <
 const char* estimator_name,
 class ... Types,
+class Par_complexity_measure_fct,
+class Seq_complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Par_complexity_measure_fct& par_complexity_measure_fct,
+           const Seq_complexity_measure_fct& seq_complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<estimator_name, 1, int>;
+    cstmt(controller_type::controller, par_complexity_measure_fct, seq_complexity_measure_fct, par_body_fct, seq_body_fct);
+}
+
+template <
+const char* estimator_name,
+class ... Types,
 class Complexity_measure_fct,
 class Par_body_fct,
 class Seq_body_fct
@@ -1152,6 +1347,23 @@ void cstmt(const Complexity_measure_fct& complexity_measure_fct,
            const Par_body_fct& par_body_fct) {
     using controller_type = pasl::pctl::granularity::controller_holder<estimator_name, 1, int>;
     cstmt(controller_type::controller, complexity_measure_fct, par_body_fct);
+}
+
+template <
+const char* method_name,
+int id,
+class ... Types,
+class Par_complexity_measure_fct,
+class Seq_complexity_measure_fct,
+class Par_body_fct,
+class Seq_body_fct
+>
+void cstmt(const Par_complexity_measure_fct& par_complexity_measure_fct,
+           const Seq_complexity_measure_fct& seq_complexity_measure_fct,
+           const Par_body_fct& par_body_fct,
+           const Seq_body_fct& seq_body_fct) {
+    using controller_type = pasl::pctl::granularity::controller_holder<method_name, id, Types...>;
+    cstmt(controller_type::controller, par_complexity_measure_fct, seq_complexity_measure_fct, par_body_fct, seq_body_fct);
 }
 
 template <
