@@ -652,11 +652,23 @@ public:
     return cst * ((double) complexity);
   }
 };
-  
-#ifdef KAPPA30
+
+#if defined(KAPPA25)
+cost_type kappa = 25.0;
+#elif defined(KAPPA30)
 cost_type kappa = 30.0;
-#elif KAPPA100
+#elif defined(KAPPA50)
+cost_type kappa = 50.0;
+#elif defined(KAPPA100)
 cost_type kappa = 100.0;
+#elif defined(KAPPA200)
+cost_type kappa = 200.0;
+#elif defined(KAPPA300)
+cost_type kappa = 300.0;
+#elif defined(KAPPA400)
+cost_type kappa = 400.0;
+#elif defined(KAPPA500)
+cost_type kappa = 500.0;
 #else
 cost_type kappa = 300.0;
 #endif
