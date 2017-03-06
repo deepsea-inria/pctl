@@ -149,8 +149,9 @@ static void parse_constant(char* buf, double& cst, std::string line) {
 }
 
 static std::string get_dflt_constant_path() {
-  std::string executable = deepsea::cmdline::name_of_my_executable();
-  return executable + ".cst";
+//  std::string executable = deepsea::cmdline::name_of_my_executable();
+//  return executable + ".cst";
+  return "constants.txt";
 }
 
 static std::string get_path_to_constants_file_from_cmdline(std::string flag) {
@@ -161,13 +162,23 @@ static std::string get_path_to_constants_file_from_cmdline(std::string flag) {
     return deepsea::cmdline::parse_or_default_string(flag + "_in", "", false);
 }
 
+static bool loaded = false;
+
 static void try_read_constants_from_file() {
-  std::string infile_path = get_path_to_constants_file_from_cmdline("read_csts");
+  if (loaded) {
+    return;
+  }
+  loaded = true;
+  std::string infile_path = get_dflt_constant_path();//get_path_to_constants_file_from_cmdline("read_csts");
   if (infile_path == "")
     return;
   std::string cst_str;
   std::ifstream infile;
   infile.open (infile_path.c_str());
+  if (!infile.good()) {
+    return;
+  }
+  std::cerr << "Load constants from constants.txt\n";
   while(! infile.eof()) {
     getline(infile, cst_str);
     if (cst_str == "")
@@ -196,13 +207,13 @@ static void try_write_constants_to_file() {
 /*---------------------------------------------------------------------*/
 /* */
 int nb_proc = 40;
-#if defined(PLOGGING) || defined(THREADS)
+#if defined(PLOGGING) || defined(THREADS_CREATED)
 pasl::pctl::perworker::array<int, pasl::pctl::perworker::get_my_id> threads_number(0);
 #endif
   
 template <class Body_fct1, class Body_fct2>
 void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
-#if defined(PLOGGING) || defined(THREADS)
+#if defined(PLOGGING) || defined(THREADS_CREATED)
   threads_number.mine()++;
 #endif
 #if defined(USE_PASL_RUNTIME)
@@ -219,7 +230,7 @@ void primitive_fork2(const Body_fct1& f1, const Body_fct2& f2) {
 
 } // end namespace
   
-#if defined(PLOGGING) || defined(THREADS)
+#if defined(PLOGGING) || defined(THREADS_CREATED)
 int threads_created() {
   int value = threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
   return threads_number.reduce([&] (int a, int b) { return a + b; }, 1);
@@ -688,9 +699,15 @@ void estimator::init() {
   topmost_complexity.init(0);
 #endif
 
+  try_read_constants_from_file();
+
   constant_map_t::iterator preloaded = preloaded_constants.find(get_name());
-  if (preloaded != preloaded_constants.end())
+  if (preloaded != preloaded_constants.end()) {
+#if defined(HONEST) || defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
+    estimator::estimated = true;
+#endif
     shared = preloaded->second;
+  }
 }
 
 void estimator::destroy() {
@@ -1255,7 +1272,7 @@ std::string type_name() {
 
 template <class First, class Second, class ... Types>
 std::string type_name() {
-  return type_name<First>() + " " + type_name<Second, Types...>();
+  return type_name<First>() + "_" + type_name<Second, Types...>();
 }
 
 template <const char* method_name, int id, class ... Types>
@@ -1265,7 +1282,7 @@ public:
 };
 
 template <const char* method_name, int id, class ... Types>
-control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder ") + std::string(method_name) + " " + std::to_string(id) + " " + type_name<Types ...>());
+control_by_prediction controller_holder<method_name, id, Types ...>::controller(std::string("controller_holder_") + std::string(method_name) + "_" + std::to_string(id) + "_" + type_name<Types ...>());
 
 // controlled statement with built in estimators
 constexpr char default_name[] = "auto";
