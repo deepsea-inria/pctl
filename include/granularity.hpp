@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <map>
 #include <sys/time.h>
+#include <sstream>
 
 #if defined(USE_PASL_RUNTIME)
 #include "threaddag.hpp"
@@ -372,6 +373,26 @@ namespace {
 /*double cpu_frequency_ghz = 2.1;
 double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;*/
 
+#if defined(KAPPA25)
+cost_type kappa = 25.0;
+#elif defined(KAPPA30)
+cost_type kappa = 30.0;
+#elif defined(KAPPA50)
+cost_type kappa = 50.0;
+#elif defined(KAPPA100)
+cost_type kappa = 100.0;
+#elif defined(KAPPA200)
+cost_type kappa = 200.0;
+#elif defined(KAPPA300)
+cost_type kappa = 300.0;
+#elif defined(KAPPA400)
+cost_type kappa = 400.0;
+#elif defined(KAPPA500)
+cost_type kappa = 500.0;
+#else
+cost_type kappa = 300.0;
+#endif
+
 class estimator : pasl::pctl::callback::client {
 //private:
 public:
@@ -416,6 +437,11 @@ public:
   perworker_type<int> estimations_left;
 #endif
 
+#ifdef SMART_ESTIMATOR
+  cost_type size_for_shared;
+  perworker_type<cost_type> last_reported_size;
+#endif
+
   cost_type get_constant() {
 #ifdef CONSTANTS
     return shared;
@@ -433,13 +459,7 @@ public:
 #ifdef CONSTANTS
     return shared;
 #endif
-/*    cost_type cst = get_constant();
-    assert (cst != 0.);
-    if (cst == cost::undefined) {
-      return cost::pessimistic;
-    } else {
-      return cst;
-    }*/
+    
     cost_type cst = privates.mine();
     if (cst != cost::undefined) {
       return cst;
@@ -453,6 +473,43 @@ public:
     }
   }
 
+#ifdef SMART_ESTIMATOR
+  double update_size_ratio = 1.1;
+
+  void load() {
+    cost_type shared_size = size_for_shared;
+    cost_type size = last_reported_size.mine();
+    if (shared_size > update_size_ratio * size) { // || (size < shared_size && shared < privates.mine() / min_report_shared_factor)) {
+      last_reported_size.mine() = shared_size;
+      privates.mine() = shared;
+    }
+  }
+
+  void update(cost_type new_cst, double new_size) {
+    cost_type shared_size = size_for_shared;
+    if (update_size_ratio * shared_size < new_size || (shared_size < new_size && new_cst < shared / min_report_shared_factor)) {
+#ifdef PLOGGING
+      pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
+#endif
+      size_for_shared = new_size;
+      shared = new_cst;
+    }
+
+    cost_type size = last_reported_size.mine();
+    if (update_size_ratio * size < new_size || (size < new_size && new_cst < privates.mine() / min_report_shared_factor)) {
+#ifdef PLOGGING
+      pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
+#endif
+      last_reported_size.mine() = size;
+      privates.mine() = new_cst;
+    }/* else if (size / update_size_ratio <= new_size) {
+      privates.mine() = (7 * privates.mine() + new_cst) / 8;
+#ifdef PLOGGING
+      pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SIZE, name.c_str(), new_size, privates.mine(), new_size * new_cst);
+#endif
+    }*/
+  }
+#else
   void update_shared(cost_type new_cst) {
 #ifdef PLOGGING
     pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
@@ -478,6 +535,7 @@ public:
 #endif
     privates.mine() = new_cst;
   }
+#endif // SMART_ESTIMATOR
   
 //public:
   
@@ -489,11 +547,15 @@ public:
     init();
   }
 
-  estimator(std::string name)
-  : name(name) {
+  estimator(std::string name) {
+//  : name(name.substr(0, std::min(40, (int)name.length()))) {
+    std::stringstream stream;
+    stream << name.substr(0, std::min(40, (int)name.length())) << this;
+    this->name = stream.str();
     init();
+//    this->name = name.substr(0, std::min(40, (int)name.length()));
 #ifdef PLOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, name.c_str());
+    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_NAME, this->name.c_str());
 #endif
     pasl::pctl::callback::register_client(this);
   }
@@ -514,15 +576,6 @@ public:
 
 #if defined(HONEST) || defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
   bool is_undefined() {
-/*    if (is_estimated.mine()) {
-      return false;
-    }
-    if (estimated.load() <= 0) {
-      is_estimated.mine() = true;
-      return false;
-    }
-    return true;*/
-//    return shared == cost::undefined;
     return !estimated;
   }
 
@@ -564,54 +617,36 @@ public:
 #endif
 
 #ifdef PLOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
+//    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
-#if defined(OPTIMISTIC) || defined(HONEST) || defined(EASYOPTIMISTIC)
-/*    bool cold_run = false;
-    if (!is_undefined()) {
-      int cnt = estimated--;
-      if (cnt == number_of_cold_runs) { // Do not report first cold run
-        return;
-      }
-      cold_run = cnt > 0;
-      measured_cst = std::min(measured_cst, shared);
-    }*/
+#ifdef SMART_ESTIMATOR
+    if (elapsed_time >= 10 * kappa) {
+      return;
+    }
+    if (shared == cost::undefined) {
+      estimated = true;
+    }
+    load();
+    update(measured_cst, complexity);
 
-/*      if (estimations_left.mine() > 0) { // cold run
-        int& x = estimations_left.mine();
-        double& estimation = first_estimation.mine();
-        estimation = std::min(estimation, measured_cst);
-//        std::cerr << estimation << " " << measured_cst << std::endl;
-        x--;
-        if (x > 0) {
-          return;
-        }
-        measured_cst = estimation;
-        estimated = true;
-      }*/
-      if (is_undefined()) {  
-        int& x = estimations_left.mine();
-        x--;
-        if (shared == cost::undefined || shared > measured_cst * min_report_shared_factor)
-          shared = measured_cst;
-        if (x > 0) {
-          return;
-        }
-        estimated = true;
+    return;
+#else
+#if (defined(OPTIMISTIC) || defined(HONEST) || defined(EASYOPTIMISTIC)) && !defined(SMART_ESTIMATOR)
+    if (is_undefined()) {  
+      int& x = estimations_left.mine();
+      x--;
+      if (shared == cost::undefined || shared > measured_cst * min_report_shared_factor) {
+        shared = measured_cst;
+      }
+      if (x > 0) {
         return;
       }
+      estimated = true;
+      return;
+    }
+
     cost_type cst = get_constant();
-/*    if (cst == cost::undefined) {
-      // handle the first measure without average
-      update(measured_cst);
-    } else*/
-
-/* 
-      if (!is_estimated.mine()) { // cold run
-        is_estimated.mine() = true;
-        return;
-      }*/
 #else
     cost_type cst = get_constant();
     if (cst == cost::undefined) {
@@ -620,12 +655,12 @@ public:
     } else
 #endif
     {
-
       // compute weighted average
       update(((weighted_average_factor * cst) + measured_cst)
              / (weighted_average_factor + 1.0));
     }
 //    std::cerr << complexity << " " << get_constant() << " " << elapsed << std::endl;
+#endif // SMART_ESTIMATOR
   }
 
   void report(complexity_type complexity, cost_type elapsed) {
@@ -640,38 +675,29 @@ public:
     if (complexity == complexity::tiny) {
       return cost::tiny;
     }
+#ifdef SMART_ESTIMATOR
+    load();
+    if (complexity > 2 * last_reported_size.mine()) {
+      return kappa + 1;
+    }
+    if (complexity <= last_reported_size.mine()) {
+      return kappa - 1;
+    }
+    return privates.mine() * ((double) complexity);
+#else
     // complexity shouldn't be undefined
     assert (complexity >= 0);
     // compute the constant multiplied by the complexity
     cost_type cst = get_constant_or_pessimistic();
 
 #ifdef PLOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_PREDICT, name.c_str(), complexity, cst * complexity, cst);
+//    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_PREDICT, name.c_str(), complexity, cst * complexity, cst);
 #endif
 
     return cst * ((double) complexity);
+#endif
   }
 };
-
-#if defined(KAPPA25)
-cost_type kappa = 25.0;
-#elif defined(KAPPA30)
-cost_type kappa = 30.0;
-#elif defined(KAPPA50)
-cost_type kappa = 50.0;
-#elif defined(KAPPA100)
-cost_type kappa = 100.0;
-#elif defined(KAPPA200)
-cost_type kappa = 200.0;
-#elif defined(KAPPA300)
-cost_type kappa = 300.0;
-#elif defined(KAPPA400)
-cost_type kappa = 400.0;
-#elif defined(KAPPA500)
-cost_type kappa = 500.0;
-#else
-cost_type kappa = 300.0;
-#endif
 
 } // end namespace
 
@@ -710,6 +736,10 @@ void estimator::init() {
 #ifdef PRUNING
   topmost_complexity.init(0);
 #endif
+#ifdef SMART_ESTIMATOR
+  size_for_shared = 0;
+  last_reported_size.init(0);
+#endif
 
   try_read_constants_from_file();
 
@@ -728,6 +758,10 @@ void estimator::destroy() {
 
 void estimator::output() {
   recorded_constants[name] = estimator::get_constant();
+#ifdef SMART_ESTIMATOR
+//  std::cerr << estimator::name << " " << privates.mine() << " " << last_reported_size.mine() << " " << privates.mine() * last_reported_size.mine() << std::endl;
+//  std::cerr << size_for_shared << " " << privates.reduce([&] (double a, double b) { return std::max(a, b); }, 0) << " " << last_reported_size.reduce([&] (double a, double b) { return std::max(a, b); }, 0) << std::endl;
+#endif
 }
   
 
@@ -842,6 +876,7 @@ void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estim
   cost_type elapsed = since_in_cycles(start);
 #endif
 #endif
+
 #ifdef OPTIMISTIC
   if (estimator.is_undefined()) {
 //  if (estimator.locally_undefined()) {
@@ -850,7 +885,7 @@ void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estim
 //    std::cerr << "Undefined report " << std::max((complexity_type) 1, m) << " " << estimator.estimated << " " << estimator.shared << " " << elapsed << " " << time_adjustment.mine() << " " << estimator.get_name() << std::endl;
   }
 #elif TWO_MODES
-  estimator.report(std::max((complexity_type) 1, m), work.mine(), true);
+  estimator.report(std::max((complexity_type) 1, m), work.mine(), estimator.is_undefined());
 #elif EASYOPTIMISTIC
   if (estimator.is_undefined()) {
     estimator.report(std::max((complexity_type) 1, m), work.mine(), true);
@@ -889,6 +924,9 @@ void cstmt_sequential_with_reporting(complexity_type m,
   execmode.mine().block(Sequential, seq_body_fct);
   cost_type elapsed = since(start);
   estimator.report(std::max((complexity_type)1, m), elapsed);
+#ifdef PLOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::SEQUENTIAL_RUN, estimator.name.c_str(), m, elapsed / estimator::local_ticks_per_microsecond);
+#endif
 }
   
 template <
