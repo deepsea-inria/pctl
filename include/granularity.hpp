@@ -865,14 +865,13 @@ void cstmt(control_by_prediction& contr,
       c = Parallel;
     } else {
 #if !defined(EASYOPTIMISTIC)
-    if (my_execmode() == Sequential) {
-        c = Sequential;
-    } else {
+      if (my_execmode() == Sequential) {
+          c = Sequential;
+      } else {
 #endif
         complexity_type comp = std::max((complexity_type)1, m);
         predicted = estimator.predict(comp);
-        if (predicted <= kappa
-           ) {
+        if (predicted <= kappa) {
           c = Sequential;
         } else {
           c = Parallel;
@@ -885,13 +884,6 @@ void cstmt(control_by_prediction& contr,
   }
 #endif
   c = execmode_combine(my_execmode(), c);
-#if !defined(EASYOPTIMISTIC)
-  if (c == Unknown_sequential) {
-    cstmt_unknown(c, m, seq_body_fct, estimator);
-  } else if (c == Unknown_parallel) {
-    cstmt_unknown(c, m, par_body_fct, estimator);
-  } else
-#endif
   if (c == Sequential) {
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
@@ -949,8 +941,7 @@ void cstmt(control_by_prediction& contr,
 #endif
         complexity_type comp = std::max((complexity_type)1, m);
         predicted = estimator.predict(comp);
-        if (predicted <= kappa
-           ) {
+        if (predicted <= kappa) {
           c = Sequential;
         } else {
           c = Parallel;
@@ -963,20 +954,13 @@ void cstmt(control_by_prediction& contr,
   }
 #endif
   c = execmode_combine(my_execmode(), c);
-#if !defined(EASYOPTIMISTIC)
-  if (c == Unknown_sequential) {
-    cstmt_unknown(c, m, seq_body_fct, estimator);
-  } else if (c == Unknown_parallel) {
-    cstmt_unknown(c, m, par_body_fct, estimator);
-  } else
-#endif
   if (c == Sequential) {
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
 #ifdef EASYOPTIMISTIC
-      cstmt_unknown(c, m, par_body_fct, estimator);
+    cstmt_unknown(c, m, par_body_fct, estimator);
 #else
-      cstmt_parallel(c, par_body_fct);
+    cstmt_parallel(c, par_body_fct);
 #endif // EASYOPTIMISTIC
   }
 }
