@@ -747,9 +747,14 @@ void cstmt_parallel(execmode_type c, const Body_fct& body_fct) {
   execmode.mine().block(c, body_fct);
 }
 
+#ifdef EASYOPTIMISTIC
 template <class Body_fct>
 void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estimator& estimator) {
   cost_type upper_work = work.mine() + since_in_cycles(timer.mine());
+#ifdef PLOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::PARALLEL_RUN_START, estimator.name.c_str(), m, work.mine() / estimator::local_ticks_per_microsecond);
+#endif
+
   work.mine() = 0;
 
   timer.mine() = get_wall_time();
@@ -759,10 +764,14 @@ void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estim
   work.mine() += since_in_cycles(timer.mine());
 
   estimator.report(std::max((complexity_type) 1, m), work.mine(), estimator.is_undefined());
+#ifdef PLOGGING
+    pasl::pctl::logging::log(pasl::pctl::logging::PARALLEL_RUN, estimator.name.c_str(), m, work.mine() / estimator::local_ticks_per_microsecond);
+#endif
 
   work.mine() = upper_work + work.mine();
   timer.mine() = get_wall_time();
 }
+#endif // EASYOPTIMISTIC
 
 template <class Seq_body_fct>
 void cstmt_sequential_with_reporting(complexity_type m,

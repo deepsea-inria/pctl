@@ -103,7 +103,7 @@ void parallel_for(Iter lo,
   
   using controller_type = contr::parallel_for<Iter, Body, Comp_rng, Seq_body_rng>;
   double comp = comp_rng(lo, hi);
-#if defined(OPTIMISTIC) || defined(EASYOPTIMISTIC)
+#if defined(EASYOPTIMISTIC) && !defined(SMART_ESTIMATOR)
 //  std::cerr << controller_type::contr.get_estimator().privates.mine() << " " << controller_type::contr.get_estimator().shared << " " << comp << " " << whole_range_comp << std::endl;
   if (comp * multiplier * par::nb_proc < whole_range_comp) {
     par::cstmt_sequential_with_reporting(comp, [&] { seq_body_rng(lo, hi); }, controller_type::contr.get_estimator());
