@@ -28,6 +28,8 @@ typedef enum {
   ESTIM_UPDATE,
   ESTIM_UPDATE_SHARED,
   SEQUENTIAL_RUN,
+  PARALLEL_RUN_START,
+  PARALLEL_RUN,
   ESTIM_UPDATE_SHARED_SIZE,
   ESTIM_UPDATE_SIZE,
   MESSAGE
@@ -42,6 +44,8 @@ static inline std::string name_of(event_type type) {
     case ESTIM_UPDATE:        return std::string("estim_update        \t%s\t%f"); // name constant
     case ESTIM_UPDATE_SHARED: return std::string("estim_update_shared \t%s\t%f"); // name constant
     case SEQUENTIAL_RUN:      return std::string("sequential_run      \t%s\t%f\t%f"); // name size time
+    case PARALLEL_RUN_START:  return std::string("parallel_run_start  \t%s\t%f\t%f"); // name size time
+    case PARALLEL_RUN:        return std::string("parallel_run        \t%s\t%f\t%f"); // name size time
     case ESTIM_UPDATE_SHARED_SIZE: return std::string("estim_update_shared_size \t%s\t%f\t%f\t%f"); //name size constant time
     case ESTIM_UPDATE_SIZE:   return std::string("estim_update_size   \t%s\t%f\t%f\t%f"); //name size constant time
     case MESSAGE:             return std::string("message             \t%s");
