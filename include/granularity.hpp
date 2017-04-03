@@ -40,7 +40,7 @@ namespace granularity {
 
 /***********************************************************************/
 
-namespace {
+//namespace {
 
 void stacktrace() {
   void *trace[16];
@@ -71,7 +71,7 @@ void stacktrace() {
   }
 }
 
-  
+namespace {
 /*---------------------------------------------------------------------*/
 /* Cycle counter */
   
@@ -118,14 +118,14 @@ int clock_gettime(int /*clk_id*/, struct timespec* t) {
   t->tv_nsec = now.tv_usec * 1000;
   return 0;
 }
-long double get_wall_time() {
+long long get_wall_time() {
   struct timespec t;
   clock_gettime(0, &t);
   return t.tv_sec * 1000000000LL + t.tv_nsec;
 }
 #else
 static inline
-long double get_wall_time() {
+long long get_wall_time() {
   struct timespec t;
   clock_gettime(CLOCK_REALTIME, &t);
   return t.tv_sec * 1000000000LL + t.tv_nsec;
@@ -353,6 +353,8 @@ cost_type kappa = 30.0;
 cost_type kappa = 50.0;
 #elif defined(KAPPA100)
 cost_type kappa = 100.0;
+#elif defined(KAPPA150)
+cost_type kappa = 150.0;
 #elif defined(KAPPA200)
 cost_type kappa = 200.0;
 #elif defined(KAPPA300)
@@ -402,7 +404,9 @@ public:
 #endif
 
 #ifdef SMART_ESTIMATOR
+#ifdef SHARED
   cost_type size_for_shared;
+#endif
   perworker_type<cost_type> last_reported_size;
 #endif
 
@@ -433,6 +437,7 @@ public:
 #ifdef SMART_ESTIMATOR
   double update_size_ratio = 1.1;
 
+#ifdef SHARED
   void load() {
     cost_type shared_size = size_for_shared;
     cost_type size = last_reported_size.mine();
@@ -441,8 +446,10 @@ public:
       privates.mine() = shared;
     }
   }
+#endif
 
   void update(cost_type new_cst, double new_size) {
+#ifdef SHARED
     cost_type shared_size = size_for_shared;
     if (update_size_ratio * shared_size < new_size || (shared_size < new_size && new_cst < shared / min_report_shared_factor)) {
 #ifdef PLOGGING
@@ -451,13 +458,15 @@ public:
       size_for_shared = new_size;
       shared = new_cst;
     }
+#endif
 
     cost_type size = last_reported_size.mine();
-    if (update_size_ratio * size < new_size || (size < new_size && new_cst < privates.mine() / min_report_shared_factor)) {
+//    if (update_size_ratio * size < new_size || (size < new_size && new_cst < privates.mine() / min_report_shared_factor)) {
+    if (size < new_size) {
 #ifdef PLOGGING
       pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
 #endif
-      last_reported_size.mine() = size;
+      last_reported_size.mine() = new_size;
       privates.mine() = new_cst;
     }/* else if (size / update_size_ratio <= new_size) {
       privates.mine() = (7 * privates.mine() + new_cst) / 8;
@@ -523,7 +532,11 @@ public:
 
 #ifdef EASYOPTIMISTIC
   bool is_undefined() {
+#if defined(SMART_ESTIMATOR) && !defined(SHARED)
+    return last_reported_size.mine() == 0;
+#else
     return !estimated;
+#endif
   }
 
   bool locally_undefined() {
@@ -568,10 +581,12 @@ public:
     if (elapsed_time >= 10 * kappa) {
       return;
     }
+#ifdef SHARED
     if (shared == cost::undefined) {
       estimated = true;
     }
     load();
+#endif
     update(measured_cst, complexity);
 
     return;
@@ -616,8 +631,10 @@ public:
       return cost::tiny;
     }
 #ifdef SMART_ESTIMATOR
+#ifdef SHARED
     load();
-    if (complexity > 2 * last_reported_size.mine()) {
+#endif
+    if (complexity > update_size_ratio * last_reported_size.mine()) { // was 2
       return kappa + 1;
     }
     if (complexity <= last_reported_size.mine()) {
@@ -671,7 +688,9 @@ void estimator::init() {
     last_report.init(0);
 #endif
 #ifdef SMART_ESTIMATOR
+#ifdef SHARED
   size_for_shared = 0;
+#endif
   last_reported_size.init(0);
 #endif
 
@@ -726,12 +745,12 @@ public:
 /* Controlled statements */
 
 static inline
-double since_in_cycles(long double start) {
+double since_in_cycles(long long start) {
   return (get_wall_time() - start) * estimator::cpu_frequency_ghz;
 }
 
 #ifdef EASYOPTIMISTIC
-perworker_type<long double> timer(0);
+perworker_type<long long> timer(0);
 #endif
 perworker_type<cost_type> work(0);
 
