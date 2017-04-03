@@ -83,6 +83,9 @@ private:
   void check(long i) const {
     assert(ptr != nullptr);
     assert(i >= 0);
+/*    if (i >= sz) {
+      pasl::pctl::granularity::stacktrace();
+    }*/
     assert(i < sz);
   }
   
