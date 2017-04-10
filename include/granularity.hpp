@@ -435,7 +435,7 @@ public:
   }
 
 #ifdef SMART_ESTIMATOR
-  double update_size_ratio = 1.1;
+  double update_size_ratio = 3;//1.1;
 
 #ifdef SHARED
   void load() {
@@ -578,7 +578,8 @@ public:
 #endif
 
 #ifdef SMART_ESTIMATOR
-    if (elapsed_time >= 10 * kappa) {
+//    if (elapsed_time >= 10 * kappa) {
+    if (elapsed_time > kappa) {
       return;
     }
 #ifdef SHARED
@@ -640,7 +641,8 @@ public:
     if (complexity <= last_reported_size.mine()) {
       return kappa - 1;
     }
-    return privates.mine() * ((double) complexity);
+//    return privates.mine() * ((double) complexity);
+    return privates.mine() * ((double) complexity) / update_size_ratio; // allow kappa * alpha runs
 #else
     // complexity shouldn't be undefined
     assert (complexity >= 0);
