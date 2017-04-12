@@ -319,7 +319,7 @@ void scan_rec(const parray<Result>& ins,
       } else {
         partials.prefix_tabulate(m, m);
       }
-      parallel_for(0l, m, loop_comp, [&] (long i) {
+      parallel_for(0l, m, /*loop_comp,*/ [&] (long i) {
         auto beg = ins.cbegin();
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
@@ -333,7 +333,7 @@ void scan_rec(const parray<Result>& ins,
       }
       auto st2 = (is_backward_scan(st)) ? backward_exclusive_scan : forward_exclusive_scan;
       scan_rec(partials, scans.begin(), out, id, merge_comp, st2);
-      parallel_for(0l, m, loop_comp, [&] (long i) {
+      parallel_for(0l, m, /*loop_comp,*/ [&] (long i) {
         auto ins_beg = ins.cbegin();
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
@@ -396,7 +396,7 @@ void scan(Input& in,
       } else {
         partials.prefix_tabulate(m, m);
       }
-      parallel_for(0l, m, loop_comp, [&] (long i) {
+      parallel_for(0l, m, /*loop_comp,*/ [&] (long i) {
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
         Input in2 = in.slice(splits, lo, hi);
@@ -410,7 +410,7 @@ void scan(Input& in,
       }
       auto st2 = (is_backward_scan(st)) ? backward_exclusive_scan : forward_exclusive_scan;
       scan_rec(partials, scans.begin(), out, id, merge_comp, st2);
-      parallel_for(0l, m, loop_comp, [&] (long i) {
+      parallel_for(0l, m, /*loop_comp,*/ [&] (long i) {
         long lo = get_rng(k, n, i).first;
         long hi = get_rng(k, n, i).second;
         Input in2 = in.slice(splits, lo, hi);
