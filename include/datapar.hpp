@@ -758,7 +758,7 @@ parray<Result> scan(Iter lo,
 namespace level1 {
   
   
-namespace {
+  //namespace {
   
 template <class Iter, class Item>
 class seq_reduce_rng_spec {
@@ -802,7 +802,7 @@ public:
 
 };
   
-} // end namespace
+  //} // end namespace
   
 template <
   class Iter,
