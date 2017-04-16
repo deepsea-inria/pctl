@@ -412,7 +412,7 @@ public:
 #endif
 
 #ifdef SMART_ESTIMATOR
-  constexpr static const double update_size_ratio = 3;//1.1;
+  constexpr static const double update_size_ratio = 1.5;//1.1;
 
 #ifdef ATOMIC_SHARED
   constexpr static const long long cst_mask = (1LL << 32) - 1;
