@@ -348,30 +348,9 @@ static constexpr cost_type pessimistic = 1.0;
 
 namespace {
   
-/*double cpu_frequency_ghz = 2.1;
-double local_ticks_per_microsecond = cpu_frequency_ghz * 1000.0;*/
+cost_type kappa = 100;
 
-#if defined(KAPPA25)
-cost_type kappa = 25.0;
-#elif defined(KAPPA30)
-cost_type kappa = 30.0;
-#elif defined(KAPPA50)
-cost_type kappa = 50.0;
-#elif defined(KAPPA100)
-cost_type kappa = 100.0;
-#elif defined(KAPPA150)
-cost_type kappa = 150.0;
-#elif defined(KAPPA200)
-cost_type kappa = 200.0;
-#elif defined(KAPPA300)
-cost_type kappa = 300.0;
-#elif defined(KAPPA400)
-cost_type kappa = 400.0;
-#elif defined(KAPPA500)
-cost_type kappa = 500.0;
-#else
-cost_type kappa = 300.0;
-#endif
+double update_size_ratio = 1.5; // aka alpha
 
 class estimator : pasl::pctl::callback::client {
 //private:
@@ -411,9 +390,6 @@ public:
   perworker_type<int> estimations_left;
 #endif
 
-#ifdef SMART_ESTIMATOR
-  constexpr static const double update_size_ratio = 1.5;//1.1;
-
 #ifdef ATOMIC_SHARED
   constexpr static const long long cst_mask = (1LL << 32) - 1;
   char padding[108];
@@ -423,7 +399,6 @@ public:
   cost_type size_for_shared;
 #endif
   perworker_type<cost_type> last_reported_size;
-#endif
 #endif
 
   cost_type get_constant() {
