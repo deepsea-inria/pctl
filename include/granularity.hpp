@@ -284,10 +284,6 @@ using execmode_type = enum {
 // `p` configuration of caller; `c` callee
 static inline
 execmode_type execmode_combine(execmode_type p, execmode_type c) {
-  // callee gives priority to Force*
-  if (c & 6 == 0) {
-    return c;
-  }
   // callee gives priority to caller when caller is Sequential
   if (p == Sequential) {
     return Sequential;
