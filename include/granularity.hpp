@@ -449,6 +449,31 @@ public:
 #endif
 
 #ifdef ATOMIC_SHARED
+
+  static constexpr int backoff_nb_cycles = 1l << 17;
+
+  static inline
+  void rdtsc_wait(uint64_t n) {
+    const uint64_t start = rdtsc();
+    while (rdtsc() < (start + n)) {
+      __asm__("PAUSE");
+    }
+  }
+  
+  static inline
+  void spin_for(uint64_t nb_cycles) {
+    rdtsc_wait(nb_cycles);
+  }
+  
+  template <class T>
+  bool compare_exchange(std::atomic<T>& cell, T& expected, T desired) {
+    if (cell.compare_exchange_strong(expected, desired)) {
+      return true;
+    }
+    spin_for(backoff_nb_cycles);
+    return false;
+  }
+
   typedef union {
     struct { float size, cst; } f;
     long long l;
@@ -470,7 +495,7 @@ public:
         pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
 #endif
 //        long long new_info = (((long long)(*(unsigned int*)(&new_size))) << 32) | (*(unsigned int*)(&new_cst));
-        if (shared_info.compare_exchange_strong(info.l, new_info.l)) {
+        if (compare_exchange(shared_info, info.l, new_info.l)) {
 //        if (__sync_val_compare_and_swap(&shared_info, info, new_info) == info) {
           break;
         }
