@@ -449,21 +449,13 @@ public:
     info.l = shared_info.load();
 
     while (true) {
-/*      unsigned int size_i = (unsigned int) (info >> 32);
-      float size = *(float*) (&size_i);*/
       if (info.f.size < new_info.f.size) {
 #ifdef PLOGGING
         pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
 #endif
-//        long long new_info = (((long long)(*(unsigned int*)(&new_size))) << 32) | (*(unsigned int*)(&new_cst));
         if (compare_exchange(shared_info, info.l, new_info.l)) {
-//        if (__sync_val_compare_and_swap(&shared_info, info, new_info) == info) {
           break;
         }
-      /*} else if (new_info.f.size * update_size_ratio >= info.f.size && new_info.f.cst <= info.f.cst / 1.2) {
-        if (shared_info.compare_exchange_strong(info.l, new_info.l)) {
-          break;
-        }*/
       } else {
         break;
       }
@@ -516,11 +508,6 @@ public:
 #endif
 
   void report(complexity_type complexity, cost_type elapsed, bool forced) {
-#ifdef REPORT_THRESHOLD
-    if (elapsed < 100) {
-      return;
-    }
-#endif
 #ifdef TIMING
     if (!forced) {
       cycles_type now_t = now();
@@ -562,7 +549,7 @@ public:
   }
   
   cost_type predict(complexity_type complexity) {
-    // tiny complexity leads to tiny cost
+    // tiny complexity leads to tiny coyt gjkjst
     if (complexity == complexity::tiny) {
       return cost::tiny;
     }
@@ -578,9 +565,6 @@ public:
     if (complexity <= info.f.size) {
       return kappa - 1;
     }
-
-/*    unsigned int cst_i = (unsigned int) (info & cst_mask);
-    float cst = *(float*) (&cst_i);*/
 
     return info.f.cst * ((double) complexity) / update_size_ratio; // allow kappa * alpha runs
   }
