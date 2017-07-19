@@ -335,11 +335,7 @@ static constexpr cost_type unknown = -2.0;
 static constexpr cost_type tiny = -3.0;
 
 //! a `pessimistic` cost is 1 microsecond per unit of complexity
-#if defined(EASYOPTIMISTIC)
 static constexpr cost_type pessimistic = std::numeric_limits<double>::infinity();
-#else
-static constexpr cost_type pessimistic = 1.0;
-#endif
 } // end namespace
 
 namespace {
@@ -378,13 +374,12 @@ public:
 #endif
 
   std::string name;    
-#ifdef EASYOPTIMISTIC
+
   // 5 cold runs
   constexpr static const int number_of_cold_runs = 5;
   bool estimated;
   perworker_type<double> first_estimation;
   perworker_type<int> estimations_left;
-#endif
 
 #ifdef ATOMIC_SHARED
   constexpr static const long long cst_mask = (1LL << 32) - 1;
@@ -600,7 +595,6 @@ public:
     return name;
   }
 
-#ifdef EASYOPTIMISTIC
   bool is_undefined() {
 #if defined(SMART_ESTIMATOR) && !defined(SHARED)
 #ifdef ATOMIC_SHARED
@@ -620,7 +614,6 @@ public:
     return privates.mine() == cost::undefined;
 #endif
   }                        
-#endif
 
 #ifdef REPORTS
   long number_of_reports() {
@@ -670,7 +663,6 @@ public:
 
     return;
 #else
-#ifdef EASYOPTIMISTIC
     if (is_undefined()) {  
       int& x = estimations_left.mine();
       x--;
@@ -685,13 +677,6 @@ public:
     }
 
     cost_type cst = get_constant();
-#else
-    cost_type cst = get_constant();
-    if (cst == cost::undefined) {
-      // handle the first measure without average
-      update(measured_cst);
-    } else
-#endif
     {
       // compute weighted average
       update(((weighted_average_factor * cst) + measured_cst)
@@ -773,11 +758,9 @@ void estimator::init() {
     shared = cost::undefined;
     privates.init(cost::undefined);
 #endif
-#ifdef EASYOPTIMISTIC
     estimated = false;
     estimations_left.init(5);//estimator::number_of_cold_runs);
     first_estimation.init(std::numeric_limits<double>::max());
-#endif
 #ifdef REPORTS
     int id = estimator_id++;
     estimators[id] = this;
@@ -799,9 +782,7 @@ void estimator::init() {
 
   constant_map_t::iterator preloaded = preloaded_constants.find(get_name());
   if (preloaded != preloaded_constants.end()) {
-#ifdef EASYOPTIMISTIC
     estimator::estimated = true;
-#endif
 #ifndef ATOMIC_SHARED
     shared = preloaded->second;
 #endif
@@ -852,9 +833,7 @@ double since_in_cycles(long long start) {
   return (get_wall_time() - start) * estimator::cpu_frequency_ghz;
 }
 
-#ifdef EASYOPTIMISTIC
 perworker_type<long long> timer(0);
-#endif
 perworker_type<cost_type> work(0);
 
 template <class Body_fct>
@@ -869,7 +848,6 @@ void cstmt_parallel(execmode_type c, const Body_fct& body_fct) {
   execmode.mine().block(c, body_fct);
 }
 
-#ifdef EASYOPTIMISTIC
 template <class Body_fct>
 void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estimator& estimator) {
   cost_type upper_work = work.mine() + since_in_cycles(timer.mine());
@@ -893,7 +871,6 @@ void cstmt_unknown(execmode_type c, complexity_type m, Body_fct& body_fct, estim
   work.mine() = upper_work + work.mine();
   timer.mine() = get_wall_time();
 }
-#endif // EASYOPTIMISTIC
 
 template <class Seq_body_fct>
 void cstmt_sequential_with_reporting(complexity_type m,
@@ -981,7 +958,6 @@ void cstmt(control_by_prediction& contr,
   complexity_type m = seq_complexity_measure_fct();
   cost_type predicted;
   execmode_type c;
-#ifdef EASYOPTIMISTIC
   if (estimator.is_undefined()) {
     c = Parallel;
   } else {
@@ -989,17 +965,11 @@ void cstmt(control_by_prediction& contr,
       execmode.mine().block(Sequential, seq_body_fct);
       return;
     }
-#endif
     if (m == complexity::tiny) {
       c = Sequential;
     } else if (m == complexity::undefined) {
       c = Parallel;
     } else {
-#if !defined(EASYOPTIMISTIC)
-      if (my_execmode() == Sequential) {
-          c = Sequential;
-      } else {
-#endif
         complexity_type comp = std::max((complexity_type)1, m);
         predicted = estimator.predict(comp);
         if (predicted <= kappa) {
@@ -1007,22 +977,13 @@ void cstmt(control_by_prediction& contr,
         } else {
           c = Parallel;
         }
-#if !defined(EASYOPTIMISTIC)
-      }
-#endif
     }
-#if defined(EASYOPTIMISTIC)
   }
-#endif
   c = execmode_combine(my_execmode(), c);
   if (c == Sequential) {
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
-#ifdef EASYOPTIMISTIC
     cstmt_unknown(c, par_complexity_measure_fct(), par_body_fct, estimator);
-#else
-    cstmt_parallel(c, par_body_fct);
-#endif // EASYOPTIMISTIC
   }
 }
 
@@ -1054,7 +1015,6 @@ void cstmt(control_by_prediction& contr,
   complexity_type m = complexity_measure_fct();
   cost_type predicted;
   execmode_type c;
-#ifdef EASYOPTIMISTIC
   if (estimator.is_undefined()) {
     c = Parallel;
   } else {
@@ -1062,17 +1022,11 @@ void cstmt(control_by_prediction& contr,
       execmode.mine().block(Sequential, seq_body_fct);
       return;
     }
-#endif
     if (m == complexity::tiny) {
       c = Sequential;
     } else if (m == complexity::undefined) {
       c = Parallel;
     } else {
-#if !defined(EASYOPTIMISTIC)
-      if (my_execmode() == Sequential) {
-        c = Sequential;
-      } else {
-#endif
         complexity_type comp = std::max((complexity_type)1, m);
         predicted = estimator.predict(comp);
         if (predicted <= kappa) {
@@ -1080,22 +1034,13 @@ void cstmt(control_by_prediction& contr,
         } else {
           c = Parallel;
         }
-#if !defined(EASYOPTIMISTIC)
-      }
-#endif
     }
-#if defined(EASYOPTIMISTIC)
   }
-#endif
   c = execmode_combine(my_execmode(), c);
   if (c == Sequential) {
     cstmt_sequential_with_reporting(m, seq_body_fct, estimator);
   } else {
-#ifdef EASYOPTIMISTIC
     cstmt_unknown(c, m, par_body_fct, estimator);
-#else
-    cstmt_parallel(c, par_body_fct);
-#endif // EASYOPTIMISTIC
   }
 }
 
@@ -1315,31 +1260,23 @@ void fork2(const Body_fct1& f1, const Body_fct2& f2) {
     f1();
     f2();
   } else {
-#ifdef EASYOPTIMISTIC
-      cost_type upper_work = work.mine() + since_in_cycles(timer.mine());
-      work.mine() = 0;
-      cost_type left_work, right_work;
-      primitive_fork2([&] {
-        work.mine() = 0;
-        timer.mine() = get_wall_time();
-        execmode.mine().block(mode, f1);
-        left_work = work.mine() + since_in_cycles(timer.mine());
-      }, [&] {
-        work.mine() = 0;
-        timer.mine() = get_wall_time();
-        execmode.mine().block(mode, f2);
-        right_work = work.mine() + since_in_cycles(timer.mine());
-      });
-      work.mine() = upper_work + left_work + right_work;
-        timer.mine() = get_wall_time();
-      return;
-#else
+    cost_type upper_work = work.mine() + since_in_cycles(timer.mine());
+    work.mine() = 0;
+    cost_type left_work, right_work;
     primitive_fork2([&] {
+      work.mine() = 0;
+      timer.mine() = get_wall_time();
       execmode.mine().block(mode, f1);
+      left_work = work.mine() + since_in_cycles(timer.mine());
     }, [&] {
+      work.mine() = 0;
+      timer.mine() = get_wall_time();
       execmode.mine().block(mode, f2);
+      right_work = work.mine() + since_in_cycles(timer.mine());
     });
-#endif
+    work.mine() = upper_work + left_work + right_work;
+      timer.mine() = get_wall_time();
+    return;
   }
 }
 
