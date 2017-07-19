@@ -431,7 +431,6 @@ public:
 #endif
   }
 
-#ifdef SMART_ESTIMATOR
 #ifdef SHARED
   void load() {
     cost_type shared_size = size_for_shared;
@@ -441,7 +440,7 @@ public:
       privates.mine() = shared;
     }
   }
-#endif
+#endif // SHARED
 
 #ifdef ATOMIC_SHARED
 
@@ -532,33 +531,6 @@ public:
     }*/
   }
 #endif // ATOMIC_SHARED
-#else
-  void update_shared(cost_type new_cst) {
-#ifdef PLOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED, name.c_str(), new_cst);
-#endif
-    shared = new_cst;
-  }
-  
-  void update(cost_type new_cst) {
-    // if decrease is significant, report it to the shared constant;
-    // (note that the shared constant never increases)
-    cost_type s = shared;
-    if (s == cost::undefined) {
-      update_shared(new_cst);
-    } else {
-      cost_type min_shared_cst = shared / min_report_shared_factor;
-      if (new_cst < min_shared_cst) {
-        update_shared(min_shared_cst);
-      }
-    }
-    // store the new constant locally in any case
-#ifdef PLOGGING
-    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE, name.c_str(), new_cst);
-#endif
-    privates.mine() = new_cst;
-  }
-#endif // SMART_ESTIMATOR
   
 //public:
   
@@ -596,14 +568,10 @@ public:
   }
 
   bool is_undefined() {
-#if defined(SMART_ESTIMATOR) && !defined(SHARED)
 #ifdef ATOMIC_SHARED
     return shared_info == 0;
 #else
     return last_reported_size.mine() == 0;
-#endif
-#else
-    return !estimated;
 #endif
   }
 
@@ -648,7 +616,6 @@ public:
 //    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_REPORT, name.c_str(), complexity, elapsed_time, measured_cst);
 #endif
 
-#ifdef SMART_ESTIMATOR
 //    if (elapsed_time >= 10 * kappa) {
     if (elapsed_time > kappa) {
       return;
@@ -662,27 +629,6 @@ public:
     update(measured_cst, complexity);
 
     return;
-#else
-    if (is_undefined()) {  
-      int& x = estimations_left.mine();
-      x--;
-      if (shared == cost::undefined || shared > measured_cst * min_report_shared_factor) {
-        shared = measured_cst;
-      }
-      if (x > 0) {
-        return;
-      }
-      estimated = true;
-      return;
-    }
-
-    cost_type cst = get_constant();
-    {
-      // compute weighted average
-      update(((weighted_average_factor * cst) + measured_cst)
-             / (weighted_average_factor + 1.0));
-    }
-#endif // SMART_ESTIMATOR
   }
 
   void report(complexity_type complexity, cost_type elapsed) {
@@ -694,7 +640,6 @@ public:
     if (complexity == complexity::tiny) {
       return cost::tiny;
     }
-#ifdef SMART_ESTIMATOR
 #ifdef SHARED
     load();
 #endif
@@ -722,18 +667,6 @@ public:
     }
 //    return privates.mine() * ((double) complexity);
     return privates.mine() * ((double) complexity) / update_size_ratio; // allow kappa * alpha runs
-#endif
-#else
-    // complexity shouldn't be undefined
-    assert (complexity >= 0);
-    // compute the constant multiplied by the complexity
-    cost_type cst = get_constant_or_pessimistic();
-
-#ifdef PLOGGING
-//    pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_PREDICT, name.c_str(), complexity, cst * complexity, cst);
-#endif
-
-    return cst * ((double) complexity);
 #endif
   }
 };
@@ -769,13 +702,11 @@ void estimator::init() {
 #ifdef TIMING
     last_report.init(0);
 #endif
-#ifdef SMART_ESTIMATOR
 #ifndef ATOMIC_SHARED
 #ifdef SHARED
   size_for_shared = 0;
 #endif
   last_reported_size.init(0);
-#endif
 #endif
 
   try_read_constants_from_file();
