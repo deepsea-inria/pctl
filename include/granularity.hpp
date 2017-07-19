@@ -355,11 +355,9 @@ public:
   constexpr static const double min_report_shared_factor = 2.0;
   constexpr static const double weighted_average_factor = 8.0;
 
-#ifndef ATOMIC_SHARED  
   cost_type shared;
 
   perworker_type<cost_type> privates;
-#endif
 
 #ifdef REPORTS
   perworker_type<long> reports_number;
@@ -381,34 +379,18 @@ public:
   perworker_type<double> first_estimation;
   perworker_type<int> estimations_left;
 
-#ifdef ATOMIC_SHARED
   constexpr static const long long cst_mask = (1LL << 32) - 1;
   char padding[108];
   std::atomic_llong shared_info;
-#else
-#ifdef SHARED
-  cost_type size_for_shared;
-#endif
-  perworker_type<cost_type> last_reported_size;
-#endif
 
   cost_type get_constant() {
-#ifdef ATOMIC_SHARED
     int cst_int = (shared_info.load() & cst_mask);
     cost_type cst = *((float*)(&cst_int));
-#else
-    cost_type cst = privates.mine();
-    // if local constant is undefined, use shared cst
-    if (cst == cost::undefined) {
-      return shared;
-    }
-#endif
     // else return local constant
     return cst;
   }
   
   cost_type get_constant_or_pessimistic() {
-#ifdef ATOMIC_SHARED
     int cst_int = (shared_info.load() & cst_mask);
     cost_type cst = *((float*)(&cst_int));
     if (cst_int == 0) {
@@ -416,19 +398,6 @@ public:
     } else {
       return cst;
     }
-#else
-    cost_type cst = privates.mine();
-    if (cst != cost::undefined) {
-      return cst;
-    } else {
-      cst = shared;
-      if (cst == cost::undefined) {
-        return cost::pessimistic;
-      } else {
-        return cst;
-      }
-    }
-#endif
   }
 
 #ifdef SHARED
@@ -441,8 +410,6 @@ public:
     }
   }
 #endif // SHARED
-
-#ifdef ATOMIC_SHARED
 
   static constexpr int backoff_nb_cycles = 1l << 17;
 
@@ -502,35 +469,6 @@ public:
       }
     }
   }
-#else
-  void update(cost_type new_cst, complexity_type new_size) {
-#ifdef SHARED
-    cost_type shared_size = size_for_shared;
-    if (update_size_ratio * shared_size < new_size || (shared_size < new_size && new_cst < shared / min_report_shared_factor)) {
-#ifdef PLOGGING
-      pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SHARED_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
-#endif
-      size_for_shared = new_size;
-      shared = new_cst;
-    }
-#endif
-
-    cost_type size = last_reported_size.mine();
-//    if (update_size_ratio * size < new_size || (size < new_size && new_cst < privates.mine() / min_report_shared_factor)) {
-    if (size < new_size) {
-#ifdef PLOGGING
-      pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SIZE, name.c_str(), new_size, new_cst, new_size * new_cst);
-#endif
-      last_reported_size.mine() = new_size;
-      privates.mine() = new_cst;
-    }/* else if (size / update_size_ratio <= new_size) {
-      privates.mine() = (7 * privates.mine() + new_cst) / 8;
-#ifdef PLOGGING
-      pasl::pctl::logging::log(pasl::pctl::logging::ESTIM_UPDATE_SIZE, name.c_str(), new_size, privates.mine(), new_size * new_cst);
-#endif
-    }*/
-  }
-#endif // ATOMIC_SHARED
   
 //public:
   
@@ -539,17 +477,13 @@ public:
   void destroy();
 
   estimator()
-#ifdef ATOMIC_SHARED
    : shared_info(0)
-#endif
   {
     init();
   }
 
   estimator(std::string name)
-#ifdef ATOMIC_SHARED
     : shared_info(0)
-#endif
   {
 //  : name(name.substr(0, std::min(40, (int)name.length()))) {
     std::stringstream stream;
@@ -568,19 +502,11 @@ public:
   }
 
   bool is_undefined() {
-#ifdef ATOMIC_SHARED
     return shared_info == 0;
-#else
-    return last_reported_size.mine() == 0;
-#endif
   }
 
   bool locally_undefined() {
-#ifdef ATOMIC_SHARED
     return false;
-#else
-    return privates.mine() == cost::undefined;
-#endif
   }                        
 
 #ifdef REPORTS
@@ -643,7 +569,6 @@ public:
 #ifdef SHARED
     load();
 #endif
-#ifdef ATOMIC_SHARED
     info_loader info;
     info.l = shared_info.load();
 
@@ -658,16 +583,6 @@ public:
     float cst = *(float*) (&cst_i);*/
 
     return info.f.cst * ((double) complexity) / update_size_ratio; // allow kappa * alpha runs
-#else
-    if (complexity > update_size_ratio * last_reported_size.mine()) { // was 2
-      return kappa + 1;
-    }
-    if (complexity <= last_reported_size.mine()) {
-      return kappa - 1;
-    }
-//    return privates.mine() * ((double) complexity);
-    return privates.mine() * ((double) complexity) / update_size_ratio; // allow kappa * alpha runs
-#endif
   }
 };
 
@@ -687,10 +602,8 @@ void print_reports() {
 
 
 void estimator::init() {
-#ifndef ATOMIC_SHARED
     shared = cost::undefined;
     privates.init(cost::undefined);
-#endif
     estimated = false;
     estimations_left.init(5);//estimator::number_of_cold_runs);
     first_estimation.init(std::numeric_limits<double>::max());
@@ -701,12 +614,6 @@ void estimator::init() {
 #endif
 #ifdef TIMING
     last_report.init(0);
-#endif
-#ifndef ATOMIC_SHARED
-#ifdef SHARED
-  size_for_shared = 0;
-#endif
-  last_reported_size.init(0);
 #endif
 
   try_read_constants_from_file();
