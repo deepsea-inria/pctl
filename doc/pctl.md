@@ -8,24 +8,46 @@ Introduction
 The parallel-container template library (pctl) is a C++ library that
 is currently under development by members of the [Deepsea
 Project](http://deepsea.inria.fr). The goal of the pctl is to provide
-a rich collection of parallel data structures, along with efficient
-data-parallel algorithms, such as merging, sorting, reduction, etc. We
-are designing pctl to target shared-memory, parallel (i.e., multicore)
-platforms.
+a collection of parallel-friendly, generic, container data structures,
+such as
 
-Our design borrows to a large extent the conventions used by the
+- contiguous, static-size arrays,
+- dynamic-size arrays,
+- sets,
+- maps, and
+- strings,
+
+and parallel algorithms, such as
+
+- the data-parallel operations map, reduce, scan, filter, etc., and
+- merging and sorting.
+
+The pctl targets shared-memory, parallel (i.e., multicore) platforms
+by design.
+
+The design borrows to a large extent the conventions used by the
 [Standard Template
 Library](http://www.cplusplus.com/reference/stl/). However, when these
-conventions come into conflict with parallelism, we break with the STL
-convention.
+conventions come into conflict with parallelism, the convention breaks
+with the STL.
 
-The pctl provides a rigorous framework for reasoning about the cost of
-pctl operations. The cost model employed by pctl is the *work*/*span*
-model, which is provided by systems, such as [Cilk
-Plus](https://software.intel.com/en-us/intel-cilk-plus) and
-[pasl](http://deepsea.inria.fr). Moreover, pctl implements a
-[granularity-control technique](http://deepsea.inria.fr/oracular/)
-that is helpful for taming overheads that relate to parallelization.
+The pctl is based on a rigorous framework for reasoning about the cost
+model. The cost model employed by pctl is the *work*/*span* model,
+which is implemented by systems, such as [Cilk
+Plus](https://software.intel.com/en-us/intel-cilk-plus), [Intel
+Threading Building Blocks](https://www.threadingbuildingblocks.org/),
+and [pasl](http://deepsea.inria.fr).
+
+Although these parallel-programming systems feature efficient dynamic
+load balancing via work stealing, the overall efficiency of all such
+systems still suffers the *granularity-control problem*. In short, the
+granularity-control problem is the problem of amortizing the overheads
+relating to parallelism, such as thread creation and inter-thread
+synchronization costs, for *all* programs. The pctl is, to the best of
+our knowledge, the first such parallel-programming system to use
+[oracular granularity control](http://deepsea.inria.fr/oracular/), an
+algorithmic granularity control technique that provides strong
+theoretical guarantees of efficiency.
 
 The sources of the pctl are made available by a [github
 repository](https://github.com/deepsea-inria/pctl).
@@ -33,18 +55,19 @@ repository](https://github.com/deepsea-inria/pctl).
 Preliminaries
 =============
 
-We have implemented pctl to be compatible with the C++11
-standard. Earlier versions of the C++ standard may be incompatible.
+The pctl is compatible with the C++11 standard. Earlier versions of
+the C++ standard may be incompatible.
 
 Downloading and building a pctl program
 ---------------------------------------
 
-The pctl library itself consists of several C++ header files. As such,
-to use the pctl in a C++ project, one must first obtain the source
-code and then, in order to build with pctl support, pass to the
-compiler the paths to the required header files. First, let us begin
-by downloading the loader script
-[get.sh](http://deepsea.inria.fr/pctl/get.sh). Now, the same
+The pctl library itself consists of a collection of C++ header
+files. As such, to use the pctl in a C++ project, one must first
+obtain the source code and thereafter, to build with pctl support,
+pass to the compiler the paths to the required header files.
+
+To get started, let us download the loader script
+[get.sh](http://deepsea.inria.fr/pctl/get.sh). Then, in the same
 directory, run the script, specifying the folder in which to store
 pctl and its dependencies.
 
@@ -127,21 +150,38 @@ $ g++ -std=c++11 `print-include-directives.sh /home/foo/pctl-install/`
 ...
 ~~~~~~~~~~~~~~~~~~~~~
 
+***TODO*** implement and document TBB support
+
 ***TODO*** document pasl support
 
 The substrate for expressing parallelism
 ----------------------------------------
 
+The most primitive means to express parallelism in the pctl is via
+binary fork join. Binary fork join is useful for programming
+divide-and-conquer algorithms that are, for various reasons, not
+conveniently expressed by higher-level constructs, such as
+parallel-for loops and data-parallel operations.
+
+Granularity control is built into the core of the pctl. At this
+substrate level, granularity control is realized by instrumenting
+functions that use binary fork join with a linguistic mechanism called
+the series-parallel guard.
+
+Overall, this substrate consists of binary fork join and
+series-parallel guards, and it serves as the basis for all of the
+higher-level constructs in the pctl. In the following two sections, we
+demonstrate how to program at the substrate level.
+
 ### Binary fork join
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class First_function, class Second_function>
 void fork2(First_function f1, Second_function f2);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the pctl, an opportunity for parallelism can be expressed by an
@@ -153,7 +193,7 @@ we might use this primitive, consider the program below.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 #include "datapar.hpp"
 
-using namespace pasl::pctl;
+using namespace pctl;
 
 template <class Iterator>
 int my_sum(Iterator lo, Iterator hi) {
@@ -221,41 +261,40 @@ a particular incarnation of oracle-guided scheduling.
 ### Mostly automatic granularity control
 
 In the pctl, oracle-guided scheduling is implemented by a mechanism
-called the ***controlled statement***. A controlled statement is (1) a
+called the ***series-parallel guard*** (spguard). A spguard is (1) a
 block of code, expressed as a lambda function, that, when called,
 performs some specified parallel computation and (2) a ***complexity
 function*** that specifies the asymptotic complexity of the block of
 code.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 // (1)
 template <class Complexity_function, class Body>
-void cstmt(Complexity_function cf, Body b);
+void spguard(Complexity_function cf, Body b);
 
 // (2)
 template <class Complexity_function, class Parallel_body, class Sequential_body>
-void cstmt(Complexity_function cf, Parallel_body pb, Sequential_body sb);
+void spguard(Complexity_function cf, Parallel_body pb, Sequential_body sb);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-There are two variants of the controlled statement. Let us focus on
-the first one for now because the first one is simpler. The call
-`cstmt(cf, b)` performs the call `b()`, using the result of `cf()` to
-help determine whether to realize opportunities for parallelism or to
-execute the call `b()` serially. In the code shown below, we see how
-to extend our `my_sum` function to achieve granularity control by use
-of the controlled statement.
+There are two variants of the spguard. Let us focus on the first one
+for now because the first one is simpler. The call `spguard(cf, b)`
+performs the call `b()`, using the result of `cf()` to help determine
+whether to realize opportunities for parallelism or to execute the
+call `b()` serially. In the code shown below, we see how to extend our
+`my_sum` function to achieve granularity control by use of the
+spguard.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 template <class Iterator>
 int my_sum(Iterator lo, Iterator hi) {
   int result = 0;
   int n = hi - lo;
-  cstmt([&] { return n; }, [&] {
+  spguard([&] { return n; }, [&] {
     if (n == 0) 
       result = 0;
     } else if (n == 1) {
@@ -282,20 +321,20 @@ case because we have a `my_sum` function for which the serial portion
 of the computation can be expressed more efficiently as a serial loop.
 
 For this reason, the pctl provides the second variant of the
-controlled statement. The call `cstmt(cf, pb, sb)` performs the call
-`pb()` if the system chooses to execute the given computation in a
-parallel fashion and the call `sb()` if the system chooses to
-sequentialize the call. As before, the result `cf()` of the complexity
-function is used by the system to determine whether to use parallel or
-serial execution. We can modify our `my_sum` example as shown below to
-use a serial body.
+spguard. The call `spguard(cf, pb, sb)` performs the call `pb()` if
+the system chooses to execute the given computation in a parallel
+fashion and the call `sb()` if the system chooses to sequentialize the
+call. As before, the result `cf()` of the complexity function is used
+by the system to determine whether to use parallel or serial
+execution. We can modify our `my_sum` example as shown below to use a
+serial body.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 template <class Iterator>
 int my_sum(Iterator lo, Iterator hi) {
   int result = 0;
   int n = hi - lo;
-  cstmt([&] { return n; }, [&] {
+  spguard([&] { return n; }, [&] {
     // parallel body
     if (n == 0) 
       result = 0;
@@ -313,8 +352,8 @@ int my_sum(Iterator lo, Iterator hi) {
     }
   }, [&] {
     // serial body
-    for (; lo != hi; lo++) {
-      result += *lo;
+    for (Iterator it = lo; it != hi; it++) {
+      result += *it;
     }
   });
   return result;
@@ -338,7 +377,7 @@ The particular containers defined by pctl fill what we believe are
 important gaps in the current state-of-the-art C++ container
 libraries. In specific, the gaps relate to data structures that can
 always be resized and accessed efficiently in parallel. Note that,
-although we designed the pctl containers to useful for *parallel
+although we designed the pctl containers to be useful for *parallel
 programming*, we have not designed them to be useful for *concurrent
 programming*.  A discussion of the difference between parallel and
 concurrent programming is out of the scope of this manual, but can be
@@ -383,13 +422,12 @@ Parallel array {#parray}
 ==============
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Item, class Alloc = std::allocator<Item>>
 class parray;
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Parallel arrays are containers representing arrays that are populated
@@ -449,6 +487,9 @@ Aliased as member type `parray::allocator_type`.
 +===================================+===================================+
 | `value_type`                      | Alias for template parameter      |
 |                                   |`Item`                             |
++-----------------------------------+-----------------------------------+
+| `size_type`                       | Alias for the type                |
+|                                   |`std::size_t`                      |
 +-----------------------------------+-----------------------------------+
 | `reference`                       | Alias for `value_type&`           |
 +-----------------------------------+-----------------------------------+
@@ -519,7 +560,7 @@ Constructs an empty container with no items;
 ### Fill container {#pa-e-f-c}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-parray(long n, const value_type& val);
+parray(size_type n, const value_type& val);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` copies of `val`.
@@ -531,15 +572,15 @@ Constructs a container with `n` copies of `val`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 // (1) Constant-time body
-parray(long n, std::function<Item(long)> body);
+parray(size_type n, std::function<Item(size_type)> body);
 // (2) Non-constant-time body
-parray(long n,
-       std::function<long(long)> body_comp,
-       std::function<Item(long)> body);
+parray(size_type n,
+       std::function<size_type(size_type)> body_comp,
+       std::function<Item(size_type)> body);
 // (3) Non-constant-time body along with range-based complexity function
-parray(long n,
-       std::function<long(long,long)> body_comp_rng,
-       std::function<Item(long)> body);
+parray(size_type n,
+       std::function<size_type(size_type,size_type)> body_comp_rng,
+       std::function<Item(size_type)> body);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` cells, populating those cells with
@@ -630,8 +671,8 @@ Table: Parallel-array member functions.
 ### Indexing operator {#pa-i-o}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-reference operator[](long i);
-const_reference operator[](long i) const;
+reference operator[](size_type i);
+const_reference operator[](size_type i) const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns a reference at the specified location `i`. No bounds check is
@@ -642,7 +683,7 @@ performed.
 ### Size operator {#pa-si}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long size() const;
+size_type size() const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns the size of the container.
@@ -667,8 +708,8 @@ container.
 ### Resize {#pa-rsz}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-void resize(long n, const value_type& val); // (1)
-void resize(long n) {                       // (2)
+void resize(size_type n, const value_type& val); // (1)
+void resize(size_type n) {                       // (2)
   value_type val;
   resize(n, val);
 }
@@ -735,13 +776,12 @@ Parallel chunked sequence {#pchunkedseq}
 =========================
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Item, class Alloc = std::allocator<Item>>
 class pchunkedseq;
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Parallel chunked sequences are containers representing
@@ -812,6 +852,9 @@ Aliased as member type `parray::allocator_type`.
 +======================================+=============================================+
 | `value_type`                         | Alias for template parameter                |
 |                                      |`Item`                                       |
++--------------------------------------+---------------------------------------------+
+| `size_type`                          | Alias for the type                          |
+|                                      |`std::size_t`                                |
 +--------------------------------------+---------------------------------------------+
 | `reference`                          | Alias for `value_type&`                     |
 +--------------------------------------+---------------------------------------------+
@@ -957,7 +1000,7 @@ Constructs an empty container with no items;
 ### Fill container {#cs-e-f-c}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-pchunkedseq(long n, const value_type& val);
+pchunkedseq(size_type n, const value_type& val);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` copies of `val`.
@@ -969,15 +1012,15 @@ Constructs a container with `n` copies of `val`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 // (1) Constant-time body
-pchunkedseq(long n, std::function<Item(long)> body);
+pchunkedseq(size_type n, std::function<Item(size_type)> body);
 // (2) Non-constant-time body
-pchunkedseq(long n,
-            std::function<long(long)> body_comp,
-            std::function<Item(long)> body);
+pchunkedseq(size_type n,
+            std::function<size_type(size_type)> body_comp,
+            std::function<Item(size_type)> body);
 // (3) Non-constant-time body along with range-based complexity function
-pchunkedseq(long n,
-            std::function<long(long,long)> body_comp_rng,
-            std::function<Item(long)> body);            
+pchunkedseq(size_type n,
+            std::function<size_type(size_type,size_type)> body_comp_rng,
+            std::function<Item(size_type)> body);            
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` cells, populating those cells with
@@ -1072,8 +1115,8 @@ Table: Operations of the parallel chunked sequence.
 ### Indexing operator {#cs-i-o}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-reference operator[](long i);
-const_reference operator[](long i) const;
+reference operator[](size_type i);
+const_reference operator[](size_type i) const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns a reference at the specified location `i`. No bounds check is
@@ -1087,7 +1130,7 @@ than eight.
 ### Size operator {#cs-si}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long size() const;
+size_type size() const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns the size of the container.
@@ -1152,10 +1195,10 @@ container.
 ### Tabulate {#cs-rbld}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-void tabulate(long n, std::function<value_type(long)> body);
-void tabulate(long n,
-              std::function<long(long)> body_comp_rng,
-              std::function<value_type(long)> body);
+void tabulate(size_type n, std::function<value_type(size_type)> body);
+void tabulate(size_type n,
+              std::function<size_type(size_type)> body_comp_rng,
+              std::function<value_type(size_type)> body);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Resizes the container so that it contains `n` items.
@@ -1175,8 +1218,8 @@ $s(i)$ the corresponding span cost.
 ### Resize {#cs-rsz}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-void resize(long n, const value_type& val);  // (1)
-void resize(long n) {                        // (2)
+void resize(size_type n, const value_type& val);  // (1)
+void resize(size_type n) {                        // (2)
   value_type val;
   resize(n, val);
 }
@@ -1216,14 +1259,13 @@ Table: Functions relating to the parallel chunked sequence.
 ### For each {#cs-foreach}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace segmented {
 
 template <class Body>
 void for_each(Body body);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Performs the calls `body(x1)`, ..., `body(xn)` for each item `xi` in
@@ -1244,14 +1286,13 @@ $s(i)$ the corresponding span cost.
 ### For each segment {#cs-foreachseg}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace segmented {
 
 template <class Body_seg>
 void for_each_segment(Body_seg body_seg);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Performs the calls `body_seg(lo1, hi1)`, ..., `body(lon, hin)` for
@@ -1274,7 +1315,6 @@ Parallel set {#pset}
 ============
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <
@@ -1285,7 +1325,7 @@ template <
 >
 class pset;
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The set container stores unique elements in ascending order. Order
@@ -1447,6 +1487,9 @@ guaranteed by the container to be at least `chunk_size/2`.
 | `value_type`                      | Alias for template parameter      |
 |                                   |`Item`                             |
 +-----------------------------------+-----------------------------------+
+| `size_type`                       | Alias for the type                |
+|                                   |`std::size_t`                      |
++-----------------------------------+-----------------------------------+
 | `key_type`                        | Alias for template parameter      |
 |                                   |`Item`                             |
 +-----------------------------------+-----------------------------------+
@@ -1522,7 +1565,7 @@ Constructs an empty container with no items;
 ### Fill container {#pset-e-f-c}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-pset(long n, const value_type& val);
+pset(size_type n, const value_type& val);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` copies of `val`.
@@ -1534,15 +1577,15 @@ Constructs a container with `n` copies of `val`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 // (1) Constant-time body
-pset(long n, std::function<Item(long)> body);
+pset(size_type n, std::function<Item(size_type)> body);
 // (2) Non-constant-time body
-pset(long n,
-     std::function<long(long)> body_comp,
-     std::function<Item(long)> body);
+pset(size_type n,
+     std::function<size_type(size_type)> body_comp,
+     std::function<Item(size_type)> body);
 // (3) Non-constant-time body along with range-based complexity function
-pset(long n,
-     std::function<long(long,long)> body_comp_rng,
-     std::function<Item(long)> body);            
+pset(size_type n,
+     std::function<size_type(size_type,size_type)> body_comp_rng,
+     std::function<Item(size_type)> body);            
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` cells, populating those cells with
@@ -1647,7 +1690,7 @@ Table: Operations of the parallel set.
 ### Size operator {#pset-si}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long size();
+size_type size();
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns the size of the container.
@@ -1812,13 +1855,12 @@ Parallel string {#pstring}
 ===============
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Alloc = std::allocator<Item>>
 class pstring;
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ## Member types
@@ -1828,6 +1870,9 @@ class pstring;
 +===================================+===================================+
 | `value_type`                      | Alias for type `char`             |
 |                                   |                                   |
++-----------------------------------+-----------------------------------+
+| `size_type`                       | Alias for the type                |
+|                                   |`std::size_t`                      |
 +-----------------------------------+-----------------------------------+
 | `reference`                       | Alias for `value_type&`           |
 +-----------------------------------+-----------------------------------+
@@ -1898,7 +1943,7 @@ Constructs an empty container with no items;
 ### Fill container {#ps-e-f-c}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-pstring(long n, char val);
+pstring(size_type n, char val);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` copies of `val`.
@@ -1910,15 +1955,15 @@ Constructs a container with `n` copies of `val`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 // (1) Constant-time body
-pstring(long n, std::function<char(long)> body);
+pstring(size_type n, std::function<char(size_type)> body);
 // (2) Non-constant-time body
-pstring(long n,
-        std::function<long(long)> body_comp,
-        std::function<char(long)> body);
+pstring(size_type n,
+        std::function<size_type(size_type)> body_comp,
+        std::function<char(size_type)> body);
 // (3) Non-constant-time body along with range-based complexity function
-pstring(long n,
-        std::function<long(long,long)> body_comp_rng,
-        std::function<char(long)> body);
+pstring(size_type n,
+        std::function<size_type(size_type,size_type)> body_comp_rng,
+        std::function<char(size_type)> body);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Constructs a container with `n` cells, populating those cells with
@@ -2018,8 +2063,8 @@ Table: Parallel-array member functions.
 ### Indexing operator {#ps-i-o}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-reference operator[](long i);
-const_reference operator[](long i) const;
+reference operator[](size_type i);
+const_reference operator[](size_type i) const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns a reference at the specified location `i`. No bounds check is
@@ -2030,7 +2075,7 @@ performed.
 ### Size operator {#ps-si}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long size() const;
+size_type size() const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns the size of the container.
@@ -2051,8 +2096,8 @@ container.
 ### Resize {#ps-rsz}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-void resize(long n, char val); // (1)
-void resize(long n) {                       // (2)
+void resize(size_type n, char val); // (1)
+void resize(size_type n) {                       // (2)
   char val;
   resize(n, val);
 }
@@ -2165,13 +2210,12 @@ Parallel-for loop
 -----------------
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter, class Body>
 void parallel_for(Iter lo, Iter hi, Body body);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The first of data-parallel operations we are going to consider is a
@@ -2185,8 +2229,8 @@ parallel-for loop to assign each position `i` in `xs` to the value
 `i+1`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-parray<long> xs = { 0, 0, 0, 0 };
-parallel_for((long)0, xs.size(), [&] (long i) {
+parray<size_type> xs = { 0, 0, 0, 0 };
+parallel_for((size_type)0, xs.size(), [&] (size_type i) {
   xs[i] = i+1;
 });
 
@@ -2205,9 +2249,9 @@ instead just incrementing the value in each cell of our parallel
 array.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-parray<long> xs = { 0, 1, 2, 3 };
-parallel_for(xs.begin(), xs.end(), [&] (long* p) {
-  long& xs_i = *p;
+parray<int> xs = { 0, 1, 2, 3 };
+parallel_for(xs.begin(), xs.end(), [&] (int* p) {
+  int& xs_i = *p;
   xs_i = xs_i + 1;
 });
 
@@ -2217,13 +2261,13 @@ std::cout << "xs = " << xs << std::endl;
 The output of this program is the same as that of the one just above.
 
 By exchanging the type `parray` for `pchunkedseq` and the iterator
-type `long*` for `typename pchunkedseq<long>::iterator`, we can
+type `int*` for `typename pchunkedseq<int>::iterator`, we can
 iterate over a parallel chunked sequence in a similar manner.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-pchunkedseq<long> xs = { 0, 1, 2, 3 };
-parallel_for(xs.begin(), xs.end(), [&] (typename pchunkedseq<long>::iterator p) {
-  long& xs_i = *p;
+pchunkedseq<int> xs = { 0, 1, 2, 3 };
+parallel_for(xs.begin(), xs.end(), [&] (typename pchunkedseq<int>::iterator p) {
+  int& xs_i = *p;
   xs_i = xs_i + 1;
 });
 
@@ -2239,13 +2283,12 @@ file [parallelfor.cpp].
 ### Non-constant-time loop bodies {#weighted-parallel-for}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter, class Body, class Comp>
 void parallel_for(Iter lo, Iter hi, Comp comp, Body body);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When the loop body does not take constant time, that is, the loop body
@@ -2285,7 +2328,7 @@ pointer to the vector. The function returns the corresponding dot
 product, taking time $O(\mathtt{n})$.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-double ddotprod(long n, const double* row, const double* vec);
+double ddotprod(size_type n, const double* row, const double* vec);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Now, we see that the body of our `dmdvmult1` function uses a
@@ -2296,12 +2339,12 @@ product operation on a specified row.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 parray<double> dmdvmult1(const parray<double>& mtx, const parray<double>& vec) {
-  long n = vec.size();
+  size_type n = vec.size();
   parray<double> result(n);
-  auto comp = [&] (long i) {
+  auto comp = [&] (size_type i) {
     return n;
   };
-  parallel_for(0L, n, comp, [&] (long i) {
+  parallel_for(0L, n, comp, [&] (size_type i) {
     result[i] = ddotprod(n, mtx.cbegin()+(i*n), vec.begin());
   });
   return result;
@@ -2324,7 +2367,7 @@ function `w` and returns a *weight table*.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 template <class Weight>
-parray<long> weights(long n, Weight weight);
+parray<size_type> weights(size_type n, Weight weight);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The result returned by the call `weights(n, w)` is the sequence `[0,
@@ -2339,7 +2382,7 @@ internally, the parallel-for loop is going to compute a weight table
 that looks the same as `w` in the code below.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-parray<long> w = weights(4, comp);
+parray<size_type> w = weights(4, comp);
 
 std::cout << "w = " << w << std::endl;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2355,7 +2398,7 @@ function where the given weight function is one that returns the value
 of its current position.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-parray<long> w = weights(4, [&] (long i) {
+parray<size_type> w = weights(4, [&] (size_type i) {
   return i;
 });
 
@@ -2380,7 +2423,6 @@ calculating the weights table. To do so, we need to consider the
 ### Range-based complexity functions for non-constant-time loop bodies
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace range {
 
@@ -2393,7 +2435,7 @@ void parallel_for(Iter lo,
                   Iter hi, Comp_rng comp_rng,
                   Body body);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The idea here is that, instead of reporting the cost of computing an
@@ -2404,12 +2446,12 @@ code below shows one way that we can make this modification to our
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 parray<double> dmdvmult2(const parray<double>& mtx, const parray<double>& vec) {
-  long n = vec.size();
+  size_type n = vec.size();
   parray<double> result(n);
-  auto comp_rng = [&] (long lo, long hi) {
+  auto comp_rng = [&] (size_type lo, size_type hi) {
     return (hi - lo) * n;
   };
-  range::parallel_for(0L, n, comp_rng, [&] (long i) {
+  range::parallel_for(0L, n, comp_rng, [&] (size_type i) {
     result[i] = ddotprod(n, mtx.cbegin()+(i*n), vec.begin());
   });
   return result;
@@ -2426,7 +2468,6 @@ weights table by providing such a range-based complexity function.
 ### Sequential-alternative loop bodies {#pfor-sequential-alt}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace range {
 
@@ -2442,7 +2483,7 @@ void parallel_for(Iter lo,
                   Body body,
                   Seq_body_rng seq_body_rng);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let us suppose that we have some highly optimized sequential algorithm
@@ -2459,17 +2500,17 @@ parallelism, the body that is applied is the sequential body.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 parray<double> dmdvmult3(const parray<double>& mtx, const parray<double>& vec) {
-  long n = vec.size();
+  size_type n = vec.size();
   parray<double> result(n);
-  auto comp_rng = [&] (long lo, long hi) {
+  auto comp_rng = [&] (size_type lo, size_type hi) {
     return (hi - lo) * n;
   };
-  range::parallel_for(0L, n, comp_rng, [&] (long i) {
+  range::parallel_for(0L, n, comp_rng, [&] (size_type i) {
     result[i] = ddotprod(n, mtx.cbegin()+(i*n), vec.begin());
-  }, [&] (long lo, long hi) {
-    for (long i = lo; i < hi; i++) {
+  }, [&] (size_type lo, size_type hi) {
+    for (size_type i = lo; i < hi; i++) {
       double dotp = 0.0;
-      for (long j = 0; j < n; j++) {
+      for (size_type j = 0; j < n; j++) {
         dotp += mtx[i*n+j] * vec[j];
       }
       result[i] = dotp;
@@ -2535,7 +2576,7 @@ class Iter;
 
 At a minimum, any value of type `Iter` must support the following
 operations. Let `a` and `b` denote values of type `Iter` and `n` a
-value of type `long`.  Then, we need the subtraction operation `a-b`,
+value of type `size_type`.  Then, we need the subtraction operation `a-b`,
 the comparison operation `a!=b`, the addition-by-a-number-operation
 `a+n`, and the increment operation `a++`.
 
@@ -2589,7 +2630,7 @@ The complexity-function class must provide a call operator of the
 following type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(Iter it);
+size_type operator()(Iter it);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This method is called by the scheduler to determine the cost of
@@ -2607,7 +2648,7 @@ The range-based complexity-function class must provide a call operator
 of the following type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(Iter lo, Iter hi);
+size_type operator()(Iter lo, Iter hi);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This method is called by the scheduler to determine the cost of a
@@ -2664,13 +2705,12 @@ Let us now see how we can encode a reduction in C++.
 ### Basic reduction {#reduce-basic}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter, class Item, class Combine>
 Item reduce(Iter lo, Iter hi, Item id, Combine combine);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The most basic reduction pattern that is provided by pctl is the one
@@ -2711,7 +2751,6 @@ the type `pchunkedseq`.
 ### Basic reduction with non-constant-time combining operators {#reduction-nonconstant}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <
@@ -2726,7 +2765,7 @@ Item reduce(Iter lo,
             Weight weight,
             Combine combine);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Recall that, for parallel-for loops, we had to take special measures
@@ -2785,7 +2824,6 @@ The example codes shown in this section can be found in [max.hpp] and
 ### Basic scan
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <
@@ -2799,7 +2837,7 @@ parray<Item> scan(Iter lo,
                   Combine combine,
                   scan_type st);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A *scan* is an operation that computes the running totals of a given
@@ -2817,7 +2855,6 @@ from the front to the back of the input sequence or from back to
 front.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 using scan_type = enum {
@@ -2827,7 +2864,7 @@ using scan_type = enum {
   backward_exclusive_scan
 };
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before we define scan formally, let us first consider some example
@@ -2923,7 +2960,6 @@ time), reduce and scan have the same work and span complexity.
 ### Basic scan with a non-constant-time combining operator
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <
@@ -2939,7 +2975,7 @@ parray<Item> scan(Iter lo,
                   Combine combine,
                   scan_type st)
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Just as was the case with reduce, our scan operator has to handle
@@ -3022,7 +3058,7 @@ item. The call operator for the weight function should have the
 following type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(const Item& x);
+size_type operator()(const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ### Complexity {#r0-complexity}
@@ -3131,7 +3167,6 @@ Table: Abstraction layers for reduce and scan that are provided by pctl.
 #### Level 1 {#red-l-1}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level1 {
 
@@ -3190,7 +3225,7 @@ parray<Result> scan(Iter lo,
                     Lift lift,
                     scan_type st);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To motivate level 1, let us return to our running example and, in
@@ -3264,7 +3299,6 @@ a value of type `int`.
 ##### Index-passing reduce and scan
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level1 {
 
@@ -3322,7 +3356,7 @@ parray<Result> scani(Iter lo,
                      Lift_idx lift_idx,
                      scan_type st);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Sometimes, it is useful for reduce and scan to pass to their lift
@@ -3395,7 +3429,7 @@ corresponding iterator and returns a value of type `Result`. The call
 operator for the `Lift` class should have the following type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-Result operator()(long pos, const Item& x);
+Result operator()(size_type pos, const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The value passed in the `pos` parameter is the index corresponding to
@@ -3422,12 +3456,12 @@ class Lift_comp;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The lift-complexity function is a C++ functor that takes a reference
-on an item and returns a non-negative number of type `long`. The
+on an item and returns a non-negative number of type `size_type`. The
 `Lift_comp` class should provide a call operator of the following
 type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(const Item& x);
+size_type operator()(const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ###### Index-passing lift-complexity function {#r1-l-c-i}
@@ -3438,11 +3472,11 @@ class Lift_comp_idx;
 
 The lift-complexity function is a C++ functor that takes an index and
 an reference on an item and returns a non-negative number of type
-`long`. The `Lift_comp_idx` class should provide a call operator of
+`size_type`. The `Lift_comp_idx` class should provide a call operator of
 the following type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(long pos, const Item& x);
+size_type operator()(size_type pos, const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ##### Complexity
@@ -3505,7 +3539,6 @@ then the amount of work performed by the reduction is $O(\log (hi-lo)
 #### Level 2 {#red-l-2}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level2 {
 
@@ -3542,7 +3575,7 @@ parray<Result> scan(Iter lo,
                     Seq_reduce_rng seq_reduce_rng,
                     scan_type st);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the [section on parallel for loops](#pfor-sequential-alt), we saw
@@ -3563,7 +3596,7 @@ int max2(const parray<parray<int>>& xss) {
   const_iterator lo = xss.cbegin();
   const_iterator hi = xss.cend();
   int id = std::numeric_limits<int>::lowest();
-  parray<long> w = weights(xss.size(), [&] (const parray<int>& xs) {
+  parray<size_type> w = weights(xss.size(), [&] (const parray<int>& xs) {
     return xs.size();
   });
   auto combine = [&] (int x, int y) {
@@ -3651,7 +3684,7 @@ to apply the lift function to the items in the right-open range `[lo,
 hi)` of the input sequence.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(Iter lo, Iter hi);
+size_type operator()(Iter lo, Iter hi);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ###### Sequential alternative body for the scan operation {#r2-ss}
@@ -3672,7 +3705,6 @@ Result operator()(Iter lo, Iter hi, typename parray<Result>::iterator dst_lo);
 #### Level 3 {#red-l-3}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level3 {
 
@@ -3712,7 +3744,7 @@ void scan(Input_iter lo,
           Seq_scan_rng_dst seq_scan_rng_dst,
           scan_type st);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this section, we are going to introduce the
@@ -3728,7 +3760,7 @@ int max3(const parray<parray<int>>& xss) {
   const_iterator lo = xss.cbegin();
   const_iterator hi = xss.cend();
   int id = std::numeric_limits<int>::lowest();
-  parray<long> w = weights(xss.size(), [&] (const parray<int>& xs) {
+  parray<size_type> w = weights(xss.size(), [&] (const parray<int>& xs) {
     return xs.size();
   });
   auto combine = [&] (int x, int y) {
@@ -3766,7 +3798,6 @@ directly to its arguments, writing the result into a destination
 cell. The implementation of the cell output is shown below.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level3 {
 
@@ -3808,7 +3839,7 @@ public:
   
 };
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The constructor takes the identity element and associative combining
@@ -3997,7 +4028,7 @@ call operator for the `Lift_idx_dst` class should have the following
 type.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-void operator()(long pos, const Item& xs, Result& dst);
+void operator()(size_type pos, const Item& xs, Result& dst);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The value that is passed in for `pos` is the index in the input
@@ -4028,7 +4059,6 @@ sequential lift function.
 #### Level 4 {#red-l-4}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level4 {
 
@@ -4070,7 +4100,7 @@ void scan(Input& in,
           Seq_convert_scan seq_convert_scan,
           scan_type st);
             
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the last level of our scan and reduce operators, we are going to
@@ -4083,7 +4113,6 @@ to represent a range encoded by a pair or random-access iterator
 values.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace level4 {
 
@@ -4106,32 +4135,32 @@ public:
     return size() >= 2;
   }
 
-  long size() const {
+  size_type size() const {
     return hi - lo;
   }
   
   void split(random_access_iterator_input& dst) {
     dst = *this;
-    long n = size();
+    size_type n = size();
     assert(n >= 2);
     Input_iter mid = lo + (n / 2);
     hi = mid;
     dst.lo = mid;
   }
   
-  array_type split(long) {
+  array_type split(size_type) {
     array_type tmp;
     return tmp;
   }
   
-  self_type slice(const array_type&, long _lo, long _hi) {
+  self_type slice(const array_type&, size_type _lo, size_type _hi) {
     self_type tmp(lo + _lo, lo + _hi);
     return tmp;
   }
     
 };
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As usual, the pair (`lo`, `hi`) represents the right-open index [`lo`,
@@ -4174,17 +4203,17 @@ public:
   }
   
   void split(chunkedseq_input& dst) {
-    long n = seq.size() / 2;
+    size_type n = seq.size() / 2;
     seq.split(seq.begin() + n, dst.seq);
   }
   
-  array_type split(long) {
+  array_type split(size_type) {
     array_type tmp;
     assert(false);
     return tmp;
   }
   
-  self_type slice(const array_type&, long _lo, long _hi) {
+  self_type slice(const array_type&, size_type _lo, size_type _hi) {
     self_type tmp;
     assert(false);
     return tmp;
@@ -4347,7 +4376,7 @@ Return a boolean value to indicate whether a split is possible.
 ###### Size {#r4i-sz}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long size() const;
+size_type size() const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns the size of the input.
@@ -4355,7 +4384,7 @@ Returns the size of the input.
 ###### Slice {#r4i-slc}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-Input slice(parray<Input>& ins, long lo, long hi);
+Input slice(parray<Input>& ins, size_type lo, size_type hi);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Returns a slice of the input that occurs logically in the right-open
@@ -4366,7 +4395,7 @@ application of the `split` function.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 void split(Input& dst);          // (1)
-parray<Input> split(long n));    // (2)
+parray<Input> split(size_type n));    // (2)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (1) Transfer a fraction of the contents of the current input object to
@@ -4391,7 +4420,7 @@ object. The `Convert_reduce_comp` class should provide the following
 call operator.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(const Input& in);
+size_type operator()(const Input& in);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ##### Convert-reduce {#r4-c}
@@ -4471,7 +4500,6 @@ defines a few type-level functions whose purpose is to extract from
 the iterator the corresponding value, reference and pointer types.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter>
@@ -4483,14 +4511,13 @@ using reference_of = typename std::iterator_traits<Iter>::reference;
 template <class Iter>
 using pointer_of = typename std::iterator_traits<Iter>::pointer;
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 ### Pack
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Item_iter, class Flags_iter>
@@ -4498,14 +4525,13 @@ parray<value_type_of<Item_iter>> pack(Item_iter lo,
                                       Item_iter hi,
                                       Flags_iter flags_lo);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 ### Filter
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter, class Pred_idx>
@@ -4514,7 +4540,7 @@ parray<value_type_of<Iter>> filteri(Iter lo, Iter hi, Pred_idx pred_idx);
 template <class Iter, class Pred>
 parray<value_type_of<Iter>> filter(Iter lo, Iter hi, Pred pred);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #### Predicate
@@ -4529,13 +4555,12 @@ bool operator()(const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-bool operator()(long pos, const Item& x);
+bool operator()(size_type pos, const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ### Max index
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <
@@ -4544,16 +4569,16 @@ template <
   class Compare,
   class Lift
 >
-long max_index(Iter lo, Iter hi, Item id, Compare compare, Lift lift);
+size_type max_index(Iter lo, Iter hi, Item id, Compare compare, Lift lift);
 
 template <
   class Iter,
   class Item,
   class Compare
 >
-long max_index(Iter lo, Iter hi, Item id, Compare compare);
+size_type max_index(Iter lo, Iter hi, Item id, Compare compare);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #### Lift function
@@ -4597,7 +4622,7 @@ class Weight;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(const Item& x);
+size_type operator()(const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
@@ -4605,7 +4630,7 @@ class Weight_rng;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-long operator()(const Item& lo, const Item* hi);
+size_type operator()(const Item& lo, const Item* hi);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Comparison-based merge
@@ -4614,7 +4639,6 @@ Comparison-based merge
 ### Iterator based
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <
@@ -4637,11 +4661,10 @@ void merge(Input_iter first1, Input_iter last1,
            Output_iter d_first, Weight weight,
            Compare compare);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace range {
 
@@ -4656,13 +4679,12 @@ void merge(Input_iter first1, Input_iter last1,
            Output_iter d_first, Weight_rng weight_rng,
            Compare compare);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ### Parallel chunked sequence
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace chunked {
 
@@ -4674,11 +4696,10 @@ template <class Item, class Weight, class Compare>
 pchunkedseq<Item> merge(pchunkedseq<Item>& xs, pchunkedseq<Item>& ys,
                         Weight weight, Compare compare);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace range {
 
@@ -4686,7 +4707,7 @@ template <class Item, class Weight_rng, class Compare>
 pchunkedseq<Item> pcmerge(pchunkedseq<Item>& xs, pchunkedseq<Item>& ys,
                           Weight_rng weight_rng, Compare compare);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -4696,7 +4717,6 @@ Comparison-based sort
 ### Iterator based
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter, class Compare>
@@ -4705,24 +4725,22 @@ void sort(Iter lo, Iter hi, Compare compare);
 template <class Iter, class Weight, class Compare>
 void sort(Iter lo, Iter hi, Weight weight, Compare compare);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace range {
 
 template <class Iter, class Weight_rng, class Compare>
 void sort(Iter lo, Iter hi, Weight_rng weight_rng, Compare compare);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ### Parallel chunked sequence
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace pchunked {
 
@@ -4735,11 +4753,10 @@ pchunkedseq<Item> sort(pchunkedseq<Item>& xs,
                        Compare compare);
 
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace pchunked {
 namespace range {
@@ -4749,7 +4766,7 @@ pchunkedseq<Item> sort(pchunkedseq<Item>& xs,
                        Weight_rng weight_rng,
                        Compare compare);
 
-} } } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -4759,24 +4776,22 @@ Integer sort
 ### Iterator based
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 
 template <class Iter>
 void integersort(Iter lo, Iter hi);
 
-} }
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ### Parallel chunked sequence
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pasl {
 namespace pctl {
 namespace pchunked {
 
 template <class Integer>
 pchunkedseq<Integer> integersort(pchunekdseq<Integer>& xs);
 
-} } }
+} }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
