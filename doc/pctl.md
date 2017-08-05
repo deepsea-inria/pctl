@@ -3196,6 +3196,27 @@ Result reduce(Iter lo,
               Lift_comp lift_comp,
               Lift lift);
 
+template <
+  class Iter,
+  class Result,
+  class Combine_comp,
+  class Combine,
+  class Lift_comp,
+  class Lift
+>
+Result reduce(Iter lo,
+              Iter hi,
+              Result id,
+              Combine_comp combine_comp,
+              Combine combine,
+              Lift_comp lift_comp,
+              Lift lift);
+} }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pctl {
+namespace level1 {
 
 template <
   class Iter,
@@ -3220,6 +3241,23 @@ template <
 parray<Result> scan(Iter lo,
                     Iter hi,
                     Result id,
+                    Combine combine,
+                    Lift_comp lift_comp,
+                    Lift lift,
+                    scan_type st);
+
+template <
+  class Iter,
+  class Result,
+  class Combine_comp,
+  class Combine,
+  class Lift_comp,
+  class Lift
+>
+parray<Result> scan(Iter lo,
+                    Iter hi,
+                    Result id,
+                    Combine_comp combine_comp,
                     Combine combine,
                     Lift_comp lift_comp,
                     Lift lift,
@@ -3261,6 +3299,7 @@ int max1(const parray<parray<int>>& xss) {
   auto lo = xss.cbegin();
   auto hi = xss.cend();
   int id = std::numeric_limits<int>::lowest();
+  auto combine_comp [&]
   auto combine = [&] (int x, int y) {
     return std::max(x, y);
   };
@@ -3331,6 +3370,29 @@ Result reducei(Iter lo,
 template <
   class Iter,
   class Result,
+  class Combine_comp,
+  class Combine,
+  class Lift_comp_idx,
+  class Lift_idx
+>
+Result reducei(Iter lo,
+               Iter hi,
+               Result id,
+               Combine_comp combine_comp,
+               Combine combine,
+               Lift_comp_idx lift_comp_idx,
+               Lift_idx lift_idx);
+
+} }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pctl {
+namespace level1 {
+
+template <
+  class Iter,
+  class Result,
   class Combine,
   class Lift_idx
 >
@@ -3351,6 +3413,23 @@ template <
 parray<Result> scani(Iter lo,
                      Iter hi,
                      Result id,
+                     Combine combine,
+                     Lift_comp_idx lift_comp_idx,
+                     Lift_idx lift_idx,
+                     scan_type st);
+
+template <
+  class Iter,
+  class Result,
+  class Combine_comp,
+  class Combine,
+  class Lift_comp_idx,
+  class Lift_idx
+>
+parray<Result> scani(Iter lo,
+                     Iter hi,
+                     Result id,
+                     Combine_comp combine_comp,
                      Combine combine,
                      Lift_comp_idx lift_comp_idx,
                      Lift_idx lift_idx,
@@ -3383,6 +3462,9 @@ the item (i.e., $\mathtt{lift\_idx}(i, xs_i)$).
 | [`Lift_idx`](#r1-li)             | Index-passing lifting operator    |
 +----------------------------------+-----------------------------------+
 | [`Combine`](#r1-comb)            | Associative combining operator    |
++----------------------------------+-----------------------------------+
+| [`Combine_comp`](#r1-comb-comp)  | Complexity function associated    |
+|                                  |with the combining operator        |
 +----------------------------------+-----------------------------------+
 | [`Lift_comp`](#r1-l-c)           | Complexity function associated    |
 |                                  |with the lift funciton             |
@@ -3447,6 +3529,21 @@ and returned are values of type `Result`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 Result operator()(const Result& x, const Result& y);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+###### Complexity function for combine {#r1-comb-comp}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+class Combine_comp;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The combine-complexity function is a C++ functor that takes a
+reference on an item and returns a non-negative number of type
+`size_type`. The `Combine_comp` class should provide a call operator
+of the following type.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+size_type operator()(const Result& x, const Result& y);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ###### Complexity function for lift {#r1-l-c}
@@ -3561,6 +3658,31 @@ Result reduce(Iter lo,
 template <
   class Iter,
   class Result,
+  class Combine_comp,
+  class Combine,
+  class Lift_comp_rng,
+  class Lift_idx,
+  class Seq_reduce_rng
+>
+Result reduce(Iter lo,
+              Iter hi,
+              Result id,
+              Combine_comp combine_comp,
+              Combine combine,
+              Lift_comp_rng lift_comp_rng,
+              Lift_idx lift_idx,
+              Seq_reduce_rng seq_reduce_rng);
+
+} }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pctl {
+namespace level2 {
+
+template <
+  class Iter,
+  class Result,
   class Combine,
   class Lift_comp_rng,
   class Lift_idx,
@@ -3569,6 +3691,25 @@ template <
 parray<Result> scan(Iter lo,
                     Iter hi,
                     Result id,
+                    Combine combine,
+                    Lift_comp_rng lift_comp_rng,
+                    Lift_idx lift_idx,
+                    Seq_reduce_rng seq_reduce_rng,
+                    scan_type st);
+
+template <
+  class Iter,
+  class Result,
+  class Combine_comp,
+  class Combine,
+  class Lift_comp_rng,
+  class Lift_idx,
+  class Seq_reduce_rng
+>
+parray<Result> scan(Iter lo,
+                    Iter hi,
+                    Result id,
+                    Combine_comp combine_comp,
                     Combine combine,
                     Lift_comp_rng lift_comp_rng,
                     Lift_idx lift_idx,
@@ -3811,6 +3952,7 @@ public:
   
   result_type id;
   Combine combine;
+  bool has_constant_time_merge = true;
   
   cell_output(result_type id, Combine combine)
   : id(id), combine(combine) { }
@@ -3826,6 +3968,14 @@ public:
     dst = src;
   }
   
+  size_type merge_comp(const result_type& src, const result_type& dst) const {
+    return 1;
+  }
+
+  size_type merge_comp(const_iterator lo, const_iterator hi) const {
+    return hi - lo;
+  }
+
   void merge(const result_type& src, result_type& dst) const {
     dst = combine(dst, src);
   }
@@ -3866,6 +4016,8 @@ public:
   using const_iterator = const result_type*;
   
   result_type id;
+
+  bool has_constant_time_merge = true;
   
   chunkedseq_output() { }
   
@@ -3875,6 +4027,14 @@ public:
   
   void copy(const result_type& src, result_type& dst) const {
     dst = src;
+  }
+
+  size_type merge_comp(const result_type& src, const result_type& dst) const {
+    return 1;
+  }
+
+  size_type merge_comp(const_iterator lo, const_iterator hi) const {
+    return hi - lo;
   }
   
   void merge(result_type& src, result_type& dst) const {
@@ -3957,12 +4117,32 @@ class Output;
 
 Type of the object to receive the output of the reduction.
 
-
 +-----------------------------+-------------------------------------+
 | Constructor                 | Description                         |
 +=============================+=====================================+
-| [copy constructor](#ro-c-c) | Copy constructor                    |
+| [Copy constructor](#ro-c-c) | Copy constructor                    |
 +-----------------------------+-------------------------------------+
+
+Table: Constructors that are required for the `Output` class.
+
++-----------------------------+-------------------------------------+
+| Public member               | Description                         |
++=============================+=====================================+
+| [Merge complexity function  | Flag to indicate whether the        |
+|       flag](#mcc-c-c)       |complexity function takes constant   |
+|                             |time.                                |
++-----------------------------+-------------------------------------+
+
+Table: Public members that are required for the `Output` class.
+
+###### Merge complexity function {#mcc-c-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+bool has_constant_time_merge;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Should be true if the merge function takes constant time, false
+otherwise.
 
 Table: Constructors that are required for the `Output` class.
 
@@ -3973,6 +4153,9 @@ Table: Constructors that are required for the `Output` class.
 +-------------------------+-------------------------------------+
 | [`copy`](#ro-cop)       | Copy the contents of a specified    |
 |                         |object to a specified cell           |
++-------------------------+-------------------------------------+
+| [`merge_comp`](#ro-mc)  | Complexity function for merge       |
+|                         |function                             |
 +-------------------------+-------------------------------------+
 | [`merge`](#ro-m)        | Merge result objects                |
 +-------------------------+-------------------------------------+
@@ -4002,6 +4185,18 @@ void copy(const Result& src, Result& dst) const;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Copy the contents of `src` to `dst`.
+
+###### Complexity function for merge {#ro-mc}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+size_type merge_comp(Result& src, Result& dst) const;       // (1)
+size_type merge_comp(Output_iter lo, Output_iter hi) const; // (2)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(1) Returns the complexity of merging the contents of `src` and `dst`.
+
+(2) Returns the complexity of merging the contents of the cells in the
+right-open range `[lo, hi)`.
 
 ###### Merge {#ro-m}
 
@@ -4603,8 +4798,6 @@ bool operator()(Item x, Item y);
 
 In-place operations
 -------------------
-
-Here, document the functions which are exported by `dpsdatapar.hpp`.
 
 Merging and sorting
 ===================
