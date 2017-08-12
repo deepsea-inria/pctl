@@ -5308,7 +5308,7 @@ first position in container that is to receive the result
 sequence. This container must be appropriately pre-allocated to store
 at least the number of items that are in the result sequence. The
 function stores the result sequence in the positions starting from
-`dst_lo` to `dst_lo + n`, where `n` denotess the number of items in
+`dst_lo` to `dst_lo + n`, where `n` denotes the number of items in
 the result sequence. The function returns the value `n`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
@@ -5329,37 +5329,107 @@ size_type pack(Input_iter lo,
 
 ***Complexity.***
 
-Work and span are linear and logarithmic in the size of the input
-sequence.
+Assuming that copying an item takes constant time, the work and span
+are linear and logarithmic in the size of the input sequence.
+
+A version for non-constant-time is not currently provided by pctl, but
+can be implemented via pctl primitives.
 
 ### Filter
+
+The filter operation applies a given predicate function $p$ to each
+item $x$ in the input sequence $xs$, returning the subsequence of
+those $x$ for which $p(x)$ returned `true`. In pctl, the first form of
+filter represents the input sequence by the items stored in the
+right-open range `(lo, hi]`. The second form is the index-based form,
+where the predicate function takes as argument both the item and its
+index.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
 
-template <class Iter, class Pred_idx>
-parray<value_type_of<Iter>> filteri(Iter lo, Iter hi, Pred_idx pred_idx);
-
 template <class Iter, class Pred>
 parray<value_type_of<Iter>> filter(Iter lo, Iter hi, Pred pred);
+
+template <class Iter, class Pred_idx>
+parray<value_type_of<Iter>> filteri(Iter lo, Iter hi, Pred_idx pred_idx);
 
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#### Predicate
+***Predicate function.***
+
+This type parameter `Pred` must provide the operator method shown just
+below.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-class Pred;     // (1)
-class Pred_idx; // (2)
+class Pred;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The operator takes as input a value from the input sequence and
+returns `true` if the item should be kept in the output and false
+otherwise.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+bool operator()(const value_type_of<Iter>& x);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***Index-passing predicate function.***
+
+The index-passing version is similar to the predicate function shown
+above, but takes an additional argument representing the position of
+the given item in the input sequence.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+class Pred_idx;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-bool operator()(const Item& x);
+bool operator()(size_type pos, const value_type_of<Iter>& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+***Destination-passing style.***
+
+The destination-passing version of filter assumes that the output
+sequence is to be stored in a pre-allocated container. The function
+stores the result sequence in the positions starting from `dst_lo` to
+`dst_lo + n`, where `n` denotes the number of items in the result
+sequence. The function returns the value `n`.
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-bool operator()(size_type pos, const Item& x);
+namespace pctl {
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred
+>
+size_type filter(Input_iter lo,
+                 Input_iter hi,
+                 Output_iter dst_lo,
+                 Pred pred);
+
+template <
+  class Input_iter,
+  class Output_iter,
+  class Pred_idx
+>
+size_type filteri(Input_iter lo,
+                  Input_iter hi,
+                  Output_iter dst_lo,
+                  Pred_idx pred_idx);
+
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***Complexity.***
+
+Assuming that copying an item and applying the the predicate function
+to an item both take constant time, the work and span are linear and
+logarithmic in the size of the input sequence.
+
+A version for non-constant-time is not currently provided by pctl, but
+can be implemented via pctl primitives.
 
 ### Max index
 
