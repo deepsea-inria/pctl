@@ -1755,7 +1755,7 @@ container.
 ### Find {#pset-find}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-itereator find(const value_type& val);
+iterator find(const value_type& val);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Searches the container for an element equivalent to `val` and returns
@@ -1850,6 +1850,559 @@ and leaves the `other` container empty.
 
 Parallel map {#pmap}
 ============
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pctl {
+
+template <
+  class Key,
+  class Item,
+  class Compare = std::less<Key>,
+  class Alloc = std::allocator<std::pair<Key, Item>>,
+  int chunk_capacity = 8
+>
+class pmap;
+
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap<int,float> m;
+m.insert(std::make_pair(5, 6.4));
+m.insert(std::make_pair(3, 2.5));
+m.insert(std::make_pair(100, 0.01));
+m.erase(5);
+std::cout << "m = " << m << std::endl;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This program prints the following.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+s = { (3, 2.5), (100, 0.01) }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Unlike an STL `map`, our `pmap` provides bulk set operations,
+including union (i.e., merge), intersection, and difference. Moreover,
+these methods are highly parallel: they take linear work and
+logarithmic span in the total size of the two containers being
+combined. The `merge` method computes the set union with a given
+container, leaving the result in the targeted container and leaving
+the given container empty.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap<int,float> m1 = { std::make_pair(5, 6.4), std::make_pair(3, 2.5) };
+pmap<int,float> m2 = { std::make_pair(100, 0.01) };
+m1.merge(m2);
+std::cout << "m1 = " << m1 << std::endl;
+std::cout << "m2 = " << m2 << std::endl;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The output:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+m1 = { (3, 2.5), (5, 6.4), (100, 0.01) }
+m2 = {  }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***TODO:*** Is this the behavior we want for merge? In particular,
+   what should happen when we try to merge when we have two matching
+   keys but two different values?
+
+Map intersection is handled in a similar fashion, by the
+`intersection` method.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap<int,float> m1 = { std::make_pair(5, 6.4), std::make_pair(3, 2.5) };
+pmap<int,float> m2 = { std::make_pair(100, 0.01), std::make_pair(5, 0.1) };
+m1.intersect(m2);
+std::cout << "m1 = " << m1 << std::endl;
+std::cout << "m2 = " << m2 << std::endl;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***TODO:*** Is this the behavior we want for intersect? In particular,
+   what should happen when we try to intersect when we have two
+   matching keys (e.g., 5) but two different values?
+
+The output:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+m1 = { (5, 6.4) }
+m2 = {  }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Map difference is handled similarly by the `diff` method.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap<int,float> m1 = { std::make_pair(5, 6.4), std::make_pair(3, 2.5) };
+pmap<int,float> m2 = { std::make_pair(100, 0.01), std::make_pair(5, 0.1) };
+m1.diff(m2);
+std::cout << "m1 = " << m1 << std::endl;
+std::cout << "m2 = " << m2 << std::endl;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The output:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+m1 = { (3, 2.5) }
+m2 = {  }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***TODO:*** Is this the behavior we want for difference? In
+   particular, what should happen when we try to diff when we have two
+   matching keys but two different values?
+
+
+## Template parameters
+
++-----------------------------------+-----------------------------------+
+| Template parameter                | Description                       |
++===================================+===================================+
+| [`Key`](#pmap-key)                | Type of the keys to be stored in  |
+|                                   |the container                      |
++-----------------------------------+-----------------------------------+
+| [`Item`](#pmap-item)              | Type of the objects to be stored  |
+|                                   |in the container                   |
++-----------------------------------+-----------------------------------+
+| [`Compare`](#pmap-compare)        | Type of the comparison function   |
+|                                   |                                   |
+|                                   |                                   |
++-----------------------------------+-----------------------------------+
+| [`Alloc`](#pmap-alloc)            | Allocator to be used by the       |
+|                                   |container to construct and destruct|
+|                                   |objects of type `Item`             |
++-----------------------------------+-----------------------------------+
+| [`chunk_capacity`](#pmap-ccap)    | Capacity of the contiguous chunks |
+|                                   |of memory that are used by the     |
+|                                   |container to store items           |
++-----------------------------------+-----------------------------------+
+
+Table: Template parameters for the `pmap` class.
+
+### Key type {#pmap-key}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+class Key;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Type of the key values.  Only if `Key` is guaranteed to not throw
+while moving, implementations can optimize to move elements instead of
+copying them during reallocations.  Aliased as member type
+`pmap::value_type`.
+
+### Item type {#pmap-item}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+class Item;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Type of the elements.  Only if `Item` is guaranteed to not throw while
+moving, implementations can optimize to move elements instead of
+copying them during reallocations.  Aliased as member type
+`pmap::value_type`.
+
+### Compare function {#pmap-compare}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+class Compare;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+bool operator()(const Key& lhs, const Key& rhs);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+### Allocator {#pmap-alloc}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+class Alloc;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Type of the allocator object used to define the storage allocation
+model. By default, the allocator class template is used, which defines
+the simplest memory allocation model and is value-independent.
+Aliased as member type `pmap::allocator_type`.
+
+### Chunk capacity {#pmap-ccap}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+int chunk_capacity;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An integer which determines the maximum size of a contiguous chunk of
+memory in the underlying container. The chunks are used by the
+container to store the items. The minimum size of a chunk is
+guaranteed by the container to be at least `chunk_size/2`.
+
+## Member types
+
++-----------------------------------+-----------------------------------+
+| Type                              | Description                       |
++===================================+===================================+
+| `key_type`                        | Alias for template parameter `Key`|
+|                                   |                                   |
++-----------------------------------+-----------------------------------+
+| `mapped_type`                     | Alias for template parameter      |
+|                                   |`Item`                             |
++-----------------------------------+-----------------------------------+
+| `value_type`                      | Alias for template parameter      |
+|                                   |`std::pair<key_type, mapped_type>` |
++-----------------------------------+-----------------------------------+
+| `size_type`                       | Alias for the type                |
+|                                   |`std::size_t`                      |
++-----------------------------------+-----------------------------------+
+| `key_compare`                     | Alias for template parameter      |
+|                                   |`Compare`                          |
++-----------------------------------+-----------------------------------+
+| `reference`                       | Alias for `value_type&`           |
++-----------------------------------+-----------------------------------+
+| `const_reference`                 | Alias for `const value_type&`     |
++-----------------------------------+-----------------------------------+
+| `pointer`                         | Alias for `value_type*`           |
++-----------------------------------+-----------------------------------+
+| `const_pointer`                   | Alias for `const value_type*`     |
++-----------------------------------+-----------------------------------+
+| [`iterator`](#pmap-iter)          | Iterator                          |
++-----------------------------------+-----------------------------------+
+| [`const_iterator`](#pmap-iter)    | Const iterator                    |
++-----------------------------------+-----------------------------------+
+
+Table: Parallel-map member types.
+
+### Iterator {#pmap-iter}
+
+The type `iterator` and `const_iterator` are instances of the
+[random-access
+iterator](http://en.cppreference.com/w/cpp/concept/RandomAccessIterator)
+concept.
+
+## Constructors and destructors
+
++-----------------------------------+-----------------------------------+
+| Constructor                       | Description                       |
++===================================+===================================+
+| [empty container                  | constructs an empty container with|
+|constructor](#pmap-e-c-c) (default |no items                           |
+|constructor)                       |                                   |
++-----------------------------------+-----------------------------------+
+| [fill constructor](#pmap-e-f-c)   | constructs a container with a     |
+|                                   |specified number of copies of a    |
+|                                   |given item                         |
++-----------------------------------+-----------------------------------+
+|[populate constructor](#pmap-e-p-c)| constructs a container with a     |
+|                                   |specified number of values that are|
+|                                   |computed by a specified function   |
++-----------------------------------+-----------------------------------+
+| [copy constructor](#pmap-e-cp-c)  | constructs a container with a copy|
+|                                   |of each of the items in the given  |
+|                                   |container, in the same order       |
++-----------------------------------+-----------------------------------+
+| [initializer list](#pmap-i-l-c)   | constructs a container with the   |
+|                                   |items specified in a given         |
+|                                   |initializer list                   |
++-----------------------------------+-----------------------------------+
+| [move constructor](#pmap-m-c)     | constructs a container that       |
+|                                   |acquires the items of a given      |
+|                                   |parallel array                     |
++-----------------------------------+-----------------------------------+
+| [destructor](#pmap-destr)         | destructs a container             |
++-----------------------------------+-----------------------------------+
+
+Table: Parallel map constructors and destructors.
+
+### Empty container constructor {#pmap-e-c-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap();
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***Complexity.*** Constant time.
+
+Constructs an empty container with no items;
+
+### Fill container {#pmap-e-f-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap(size_type n, const value_type& val);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Constructs a container with `n` copies of `val`.
+
+***Complexity.*** Work and span are linear and logarithmic in the size
+   of the resulting container, respectively.
+
+### Populate constructor {#pmap-e-p-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+// (1) Constant-time body
+pmap(size_type n, std::function<value_type(size_type)> body);
+// (2) Non-constant-time body
+pmap(size_type n,
+     std::function<size_type(size_type)> body_comp,
+     std::function<value_type(size_type)> body);
+// (3) Non-constant-time body along with range-based complexity function
+pmap(size_type n,
+     std::function<size_type(size_type,size_type)> body_comp_rng,
+     std::function<value_type(size_type)> body);            
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Constructs a container with `n` cells, populating those cells with
+values returned by the `n` calls, `body(0)`, `body(1)`, ...,
+`body(n-1)`, in that order.
+
+In the second version, the value returned by `body_comp(i)` is used by
+the constructor as the complexity estimate for the call `body(i)`.
+
+In the third version, the value returned by `body_comp(lo, hi)` is
+used by the constructor as the complexity estimate for the calls
+`body(lo)`, `body(lo+1)`, ... `body(hi-1)`.
+
+***Complexity.*** The work and span cost are $(\sum_{0 \leq i < n}
+w(i))$ and $(\log n + \max_{0 \leq i < n} s(i))$, respectively, where
+$w(i)$ represents the work cost of computing $\mathtt{body}(i)$ and
+$s(i)$ the corresponding span cost.
+
+### Copy constructor {#pmap-e-cp-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap(const pmap& other);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Constructs a container with a copy of each of the items in `other`, in
+the same order.
+
+***Complexity.*** Work and span are linear and logarithmic in the size
+   of the resulting container, respectively.
+
+### Initializer-list constructor {#pmap-i-l-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap(initializer_list<value_type> il);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Constructs a container with the items in `il`.
+
+***Complexity.*** Work and span are linear in the size of the resulting
+   container.
+
+### Move constructor {#pmap-m-c}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pmap(pmap&& x);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Constructs a container that acquires the items of `other`.
+
+***Complexity.*** Constant time.
+
+### Destructor {#pmap-destr}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+~pmap();
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Destructs the container.
+
+***Complexity.*** Work and span are linear and logarithmic in the size
+   of the container, respectively.
+
+## Member functions
+
++-------------------------------------+--------------------------------------+
+| Operation                           | Description                          |
++=====================================+======================================+
+| [`size`](#pmap-si)                  | Return size                          |
++-------------------------------------+--------------------------------------+
+| [`swap`](#pmap-sw)                  | Exchange contents                    |
++-------------------------------------+--------------------------------------+
+| [`begin`](#pmap-beg)                | Returns an iterator to the beginning |
+| [`cbegin`](#pmap-beg)               |                                      |
++-------------------------------------+--------------------------------------+
+| [`end`](#pmap-end)                  | Returns an iterator the end          |
+| [`cend`](#pmap-end)                 |                                      |
++-------------------------------------+--------------------------------------+
+| [`clear`](#pmap-clear)              | Erases contents of the container     |
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+| [`find`](#pmap-find)                | Get iterator to element              |
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+| [`insert`](#pmap-insert)            | Insert element                       |
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+| [`erase`](#pmap-erase)              | Remove element                       |
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+| [`merge`](#pmap-merge)              | Take map union with given pmap       |
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+| [`intersect`](#pmap-intersect)      | Take map intersection with given pmap|
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+| [`diff`](#pmap-diff)                | Take map difference with give pmap   |
+|                                     |                                      |
++-------------------------------------+--------------------------------------+
+          
+Table: Operations of the parallel map.
+
+### Size operator {#pmap-si}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+size_type size();
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns the size of the container.
+
+***Complexity.*** Constant time.
+
+### Exchange oparation
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+void swap(pmap& other);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exchanges the contents of the container with those of other. Does not
+invoke any move, copy, or swap operations on individual items.
+
+***Complexity.*** Constant time.
+
+### Iterator begin {#pmap-beg}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+iterator begin() const;
+const_iterator cbegin() const;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns an iterator to the first item of the container.
+
+If the container is empty, the returned iterator will be equal to
+end().
+
+***Complexity.*** Constant time.
+
+### Iterator end {#pmap-end}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+iterator end() const;
+const_iterator cend() const;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns an iterator to the element following the last item of the
+container.
+
+This element acts as a placeholder; attempting to access it results in
+undefined behavior.
+
+***Complexity.*** Constant time.
+
+### Clear {#pmap-clear}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+void clear();
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Erases the contents of the container, which becomes an empty
+container.
+
+***Complexity.*** Work and span are linear and logarithmic in the size
+   of the container, respectively.
+
+***Iterator validity.*** Invalidates all iterators, if the size before
+   the operation differs from the size after.
+
+### Find {#pmap-find}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+iterator find(const key_type& k);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Searches the container for an element whose key is equivalent to `k`
+and returns an iterator to it if found, otherwise it returns an
+iterator to `pmap::end`.
+
+Two elements of a map are considered equivalent if the container's
+comparison object returns false reflexively (i.e., no matter the order
+in which the elements are passed as arguments).
+
+***Complexity.*** Logarithmic time.
+
+### Insert {#pmap-insert}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+pair<iterator,bool> insert (const value_type& val);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Extends the container by inserting new elements, effectively
+increasing the container size by the number of elements inserted.
+
+Because elements in a map are unique, the insertion operation checks
+whether each inserted element is equivalent to an element already in
+the container, and if so, the element is not inserted, returning an
+iterator to this existing element (if the function returns a value).
+
+***Complexity.*** Logarithmic time.
+
+***Iterator validity.*** Invalidates all iterators, if the size before
+   the operation differs from the size after.
+
+### Erase {#pmap-erase}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+size_type erase (const key_type& k);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Removes from the map the key `k`, if it is present.
+
+This effectively reduces the container size by the number of elements
+removed, which are destroyed.
+
+***Complexity.*** Logarithmic time.
+
+***Iterator validity.*** Invalidates all iterators, if the size before
+   the operation differs from the size after.
+
+### Map union {#pmap-merge}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+void merge(pmap& other);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Leaves in the current container the result of taking the map union of
+the original container and the `other` container and leaves the
+`other` container empty.
+
+***Complexity.*** Work and span are linear and logarithmic in the
+   combined sizes of the two containers, respectively.
+
+***Iterator validity.*** Invalidates all iterators.
+   
+### Map intersection {#pmap-intersect}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+void intersect(pmap& other);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Leaves in the current container the result of taking the map
+intersection of the original container and the `other` container and
+leaves the `other` container empty.
+
+***Complexity.*** Work and span are linear and logarithmic in the
+   combined sizes of the two containers, respectively.
+
+***Iterator validity.*** Invalidates all iterators.
+
+### Map difference {#pmap-diff}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+void diff(pmap& other);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Leaves in the current container the result of taking the difference
+intersection between the original container and the `other` container
+and leaves the `other` container empty.
+
+***Complexity.*** Work and span are linear and logarithmic in the
+   combined sizes of the two containers, respectively.
+
+***Iterator validity.*** Invalidates all iterators.
 
 Parallel string {#pstring}
 ===============
@@ -4687,12 +5240,13 @@ as the ordinary convert function given the same input.
 Derived operations
 ------------------
 
-***Type-level operators*** Sometimes, as we will see in this section,
-the pctl defines a function that both takes as template parameter an
-iterator class and extracts from that iterator class the type of the
-items that are referenced by the iterator.  For this purpose, the pctl
-defines a few type-level functions whose purpose is to extract from
-the iterator the corresponding value, reference and pointer types.
+The remaining data-parallel operations are ones that can be derived
+from the prevoius operations. However, these operations are useful
+almost as often.
+
+***Type-level operators*** The purpose of the following type operators
+is to extract from an iterator type the underlying value, reference
+and pointer types.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
@@ -4709,8 +5263,16 @@ using pointer_of = typename std::iterator_traits<Iter>::pointer;
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
 ### Pack
+
+In general, the pack operation takes a sequence $xs$ of values and a
+sequence of $bs$ booleans, requiring that $| xs | = | bs |$, and
+returns the subsequence $ys$ of $xs$ containing each item $x_i$ in
+$xs$ for which $b_i = \mathrm{true}$ in $bs$. The ordering of the
+items in $ys$ is guaranteed to match that of $xs$. In pctl, the
+sequence of values is specified by the right-open iterator range `(lo,
+hi]` and the booleans by the right-open range `(flags_lo, flags_lo +
+(hi - lo)]`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
@@ -4723,6 +5285,52 @@ parray<value_type_of<Item_iter>> pack(Item_iter lo,
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+***Example.***
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+parray<int>  xs = { 3, 1, 2, 5, 0 };
+parray<bool> bs = { 1, 0, 1, 1, 0 };
+parray<int>  ys = pack(xs.begin(), xs.end(), bs.begin());
+std::cout << "ys = " << ys << std::endl;
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The output is the following:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ys = { 3, 2, 5 }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***Destination-passing style.***
+
+The destination-passing style version of pack takes an additional
+parameter, namely the iterator `dst_lo`. This iterator points to the
+first position in container that is to receive the result
+sequence. This container must be appropriately pre-allocated to store
+at least the number of items that are in the result sequence. The
+function stores the result sequence in the positions starting from
+`dst_lo` to `dst_lo + n`, where `n` denotess the number of items in
+the result sequence. The function returns the value `n`.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
+namespace pctl {
+
+template <
+  class Input_iter,
+  class Flags_iter,
+  class Output_iter
+>
+size_type pack(Input_iter lo,
+               Input_iter hi,
+               Flags_iter flags_lo,
+               Output_iter dst_lo);
+
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+***Complexity.***
+
+Work and span are linear and logarithmic in the size of the input
+sequence.
 
 ### Filter
 
