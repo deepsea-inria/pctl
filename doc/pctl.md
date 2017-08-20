@@ -5270,9 +5270,9 @@ sequence of $bs$ booleans, requiring that $| xs | = | bs |$, and
 returns the subsequence $ys$ of $xs$ containing each item $x_i$ in
 $xs$ for which $b_i = \mathrm{true}$ in $bs$. The ordering of the
 items in $ys$ is guaranteed to match that of $xs$. In pctl, the
-sequence of values is specified by the right-open iterator range `(lo,
-hi]` and the booleans by the right-open range `(flags_lo, flags_lo +
-(hi - lo)]`.
+sequence of values is specified by the right-open iterator range `[lo,
+hi)` and the booleans by the right-open range `[flags_lo, flags_lo +
+(hi - lo))`.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
@@ -5341,7 +5341,7 @@ The filter operation applies a given predicate function $p$ to each
 item $x$ in the input sequence $xs$, returning the subsequence of
 those $x$ for which $p(x)$ returned `true`. In pctl, the first form of
 filter represents the input sequence by the items stored in the
-right-open range `(lo, hi]`. The second form is the index-based form,
+right-open range `[lo, hi)`. The second form is the index-based form,
 where the predicate function takes as argument both the item and its
 index.
 
@@ -5470,44 +5470,87 @@ Item operator()(const Item& x);
 class Compare;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-bool operator()(Item x, Item y);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In-place operations
--------------------
-
 Merging and sorting
 ===================
+
+Comparison based
+----------------
+
+### Template parameters
+
++---------------------------------+-----------------------------------+
+| Template parameter              | Description                       |
++=================================+===================================+
+| [`Compare`](#srt-comp)          | Comparison-function object        |
++---------------------------------+-----------------------------------+
+| [`Weight`](#srt-wfo)            | Weight-function object            |
++---------------------------------+-----------------------------------+
+| [`Weight_rng`](#srt-rwfo)       | Range-based weight-function object|
++---------------------------------+-----------------------------------+
+                       
+Table: Template parameters used by comparison-based sorting and merging.
+
+#### Comparison-function object {#srt-comp}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 class Compare;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The comparison-function object (i.e. an object satisfies the
+requirements of `Compare`) returns ​true if the first argument is less
+than (i.e. is ordered before) the second.  The signature of the
+comparison function should be equivalent to the following:
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 bool operator()(const Item& x, const Item& y);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The signature does not need to have `const &`, but the function object
+must not modify the objects passed to it.  The type `Item` must be
+such that an object of type `RandomIt` can be dereferenced and then
+implicitly converted to this type.
+
+#### Weight-function object {#srt-wfo}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 class Weight;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The weight-function object (i.e., an object that satisfies the
+requirements of `Weight`) returns a client-specified, non-negative
+weight value for a given item `x`.
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 size_type operator()(const Item& x);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#### Range-based weight-function object {#srt-rwfo}
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 class Weight_rng;
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The range-based, weight-function object (i.e., an object that
+satisfies the requirements of `Weight_rng`) returns a client
+specified, non-negative weight value for a given sequence of items
+stored in the right open range `[lo, hi)`.
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 size_type operator()(const Item& lo, const Item* hi);
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Comparison-based merge
-----------------------
+### Merging
 
-### Iterator based
+Merges two sorted ranges `[first1, last1)` and `[first2, last2)` into
+one sorted range beginning at `d_first`.
+
+Items are compared using `compare`.
+
+The behavior is undefined if the destination range overlaps either of
+the input ranges (the input ranges may overlap each other).
+
+The `weight` function specifies the cost of using a given item to make
+a comparison. This function is used by the granularity controller.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
@@ -5532,32 +5575,31 @@ void merge(Input_iter first1, Input_iter last1,
            Output_iter d_first, Weight weight,
            Compare compare);
 
+  namespace range {
+
+  template <
+    class Input_iter,
+    class Output_iter,
+    class Weight_rng,
+    class Compare
+  >
+  void merge(Input_iter first1, Input_iter last1,
+             Input_iter first2, Input_iter last2,
+             Output_iter d_first, Weight_rng weight_rng,
+             Compare compare);
+
+  }
+
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pctl {
-namespace range {
-
-template <
-  class Input_iter,
-  class Output_iter,
-  class Weight_rng,
-  class Compare
->
-void merge(Input_iter first1, Input_iter last1,
-           Input_iter first2, Input_iter last2,
-           Output_iter d_first, Weight_rng weight_rng,
-           Compare compare);
-
-} }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-### Parallel chunked sequence
+This version of the merge operation pertains specifically to chunked
+sequences. Unlike the iterator-based versions listed above, this
+version allocates $O(1)$ space. To enable this behavior, the function
+destroys the sequences `xs` and `ys` during its operation.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
-namespace chunked {
 
 template <class Item, class Compare>
 pchunkedseq<Item> merge(pchunkedseq<Item>& xs, pchunkedseq<Item>& ys,
@@ -5567,25 +5609,35 @@ template <class Item, class Weight, class Compare>
 pchunkedseq<Item> merge(pchunkedseq<Item>& xs, pchunkedseq<Item>& ys,
                         Weight weight, Compare compare);
 
-} }
+  namespace range {
+
+  template <class Item, class Weight_rng, class Compare>
+  pchunkedseq<Item> pcmerge(pchunkedseq<Item>& xs, pchunkedseq<Item>& ys,
+                            Weight_rng weight_rng, Compare compare);
+
+  }
+
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pctl {
-namespace range {
+***Complexity.***
 
-template <class Item, class Weight_rng, class Compare>
-pchunkedseq<Item> pcmerge(pchunkedseq<Item>& xs, pchunkedseq<Item>& ys,
-                          Weight_rng weight_rng, Compare compare);
+Assuming that comparing any two items takes constant time, the work is
+linear in the combined size of the inputs and the span logarithmic.
 
-} }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Otherwise, if comparing any two items takes $O(comp_w)$ work and
+$O(comp_s)$ span, the work is $O(comp_w * (n_1 + n_2))$ and the span
+$O(comp_s * \log(n_1 + n_2))$.
 
+In all cases, except for the chunked-sequence versions, the merge
+operation uses linear space for temporary storage. The
+chunked-sequence versions use constant space.
 
-Comparison-based sort
----------------------
+Sorting
+-------
 
-### Iterator based
+Sorts the elements in the range `[first, last)` in ascending
+order. The order of equal elements is not guaranteed to be preserved.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
@@ -5596,24 +5648,22 @@ void sort(Iter lo, Iter hi, Compare compare);
 template <class Iter, class Weight, class Compare>
 void sort(Iter lo, Iter hi, Weight weight, Compare compare);
 
+namespace range {
+
+  template <class Iter, class Weight_rng, class Compare>
+  void sort(Iter lo, Iter hi, Weight_rng weight_rng, Compare compare);
+
+}
+
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pctl {
-namespace range {
-
-template <class Iter, class Weight_rng, class Compare>
-void sort(Iter lo, Iter hi, Weight_rng weight_rng, Compare compare);
-
-} }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-### Parallel chunked sequence
+This version pertains to chunked sequences. It sorts its input using
+$O(1)$ space. To achieve this bound, the function destroys its input
+sequence.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
-namespace pchunked {
 
 template <class Item, class Compare>
 pchunkedseq<Item> sort(pchunkedseq<Item>& xs, Compare compare);
@@ -5624,27 +5674,30 @@ pchunkedseq<Item> sort(pchunkedseq<Item>& xs,
                        Compare compare);
 
 
-} }
+  namespace range {
+
+  template <class Item, class Weight_rng, class Compare>
+  pchunkedseq<Item> sort(pchunkedseq<Item>& xs,
+                         Weight_rng weight_rng,
+                         Compare compare);
+
+  }
+  
+}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
-namespace pctl {
-namespace pchunked {
-namespace range {
+***Complexity.***
 
-template <class Item, class Weight_rng, class Compare>
-pchunkedseq<Item> sort(pchunkedseq<Item>& xs,
-                       Weight_rng weight_rng,
-                       Compare compare);
+Assuming that comparing any two items takes constant time, the work is
+$O(n \log n)$ and the span $O(\log n)$, where $n$ is the length of the
+input sequence.
 
-} }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Otherwise, if comparing any two items takes $O(comp_w)$ work and
+$O(comp_s)$ span, the work is $O(comp_w * n)$ and the span $O(comp_s *
+\log n)$.
 
-
-Integer sort
-------------
-
-### Iterator based
+Integer sorting
+---------------
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
@@ -5654,8 +5707,6 @@ void integersort(Iter lo, Iter hi);
 
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-### Parallel chunked sequence
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ {.cpp}
 namespace pctl {
